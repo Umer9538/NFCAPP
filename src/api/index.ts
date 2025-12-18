@@ -12,9 +12,11 @@ export * from './auth';
 export * from './emergencyProfile';
 export * from './nfc';
 export * from './qr';
+export * from './organizations';
 
 // Re-export for convenience
 export { authApi } from './auth';
 export { emergencyProfileApi } from './emergencyProfile';
 export { nfcApi } from './nfc';
 export { qrApi } from './qr';
+export { organizationsApi } from './organizations';

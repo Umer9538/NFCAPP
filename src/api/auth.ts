@@ -6,6 +6,7 @@
 import { api } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, STORAGE_KEYS } from '@/constants';
+import type { AccountType } from '@/config/dashboardConfig';
 import type {
   LoginRequest,
   LoginResponse,
@@ -28,12 +29,19 @@ import type {
 } from '@/types/auth';
 
 /**
+ * Helper to get database instance
+ */
+async function getDb() {
+  const { db } = await import('@/db/database');
+  return db;
+}
+
+/**
  * Login with email and password
  */
 export async function login(data: LoginRequest): Promise<LoginResponse> {
   try {
-    // Import database service
-    const { db } = await import('@/db/database');
+    const db = await getDb();
 
     // Check credentials against local SQLite database
     const user = await db.getFirstAsync<any>(
@@ -62,10 +70,12 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
         email: user.email,
         firstName,
         lastName,
-        phoneNumber: user.phoneNumber || null,
+        phoneNumber: user.phoneNumber || undefined,
         emailVerified: user.emailVerified === 1,
         twoFactorEnabled: user.twoFactorEnabled === 1,
-        profilePicture: user.profilePicture || null,
+        accountType: (user.accountType as AccountType) || 'individual',
+        organizationId: user.organizationId || undefined,
+        role: user.role || undefined,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -82,7 +92,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
         phoneNumber: '+1 (555) 123-4567',
         emailVerified: 1,
         twoFactorEnabled: 0,
-        profilePicture: null,
+        accountType: 'individual' as AccountType,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -101,7 +111,9 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
           phoneNumber: mockUser.phoneNumber,
           emailVerified: true,
           twoFactorEnabled: false,
-          profilePicture: null,
+          accountType: 'individual',
+          organizationId: undefined,
+          role: undefined,
           createdAt: mockUser.createdAt,
           updatedAt: mockUser.updatedAt,
         },
@@ -124,6 +136,8 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
       email: data.email,
       password: data.password,
       confirmPassword: data.password,
+      accountType: data.accountType || 'individual',
+      organizationId: data.organizationId,
     };
 
     // Call backend API
@@ -132,7 +146,7 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
       message: string;
       userId: string;
       email: string;
-    }>(API_CONFIG.ENDPOINTS.AUTH.SIGNUP, signupData);
+    }>(API_CONFIG.ENDPOINTS.AUTH.REGISTER, signupData);
 
     return {
       token: '',
@@ -142,14 +156,16 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
         email: response.email,
         firstName: data.firstName,
         lastName: data.lastName,
-        phoneNumber: data.phoneNumber || null,
+        phoneNumber: data.phoneNumber || undefined,
         emailVerified: false,
         twoFactorEnabled: false,
+        accountType: data.accountType || 'individual',
+        organizationId: data.organizationId,
+        role: undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      requiresEmailVerification: true,
-      userId: response.userId,
+      message: 'Please check your email to verify your account',
     };
   } catch (error: any) {
     console.error('[Auth API] Signup error:', error);
@@ -175,6 +191,8 @@ export async function logout(): Promise<void> {
       STORAGE_KEYS.AUTH_TOKEN,
       STORAGE_KEYS.REFRESH_TOKEN,
       STORAGE_KEYS.USER_DATA,
+      STORAGE_KEYS.ACCOUNT_TYPE,
+      STORAGE_KEYS.ORGANIZATION_ID,
     ]);
   } catch (error) {
     console.error('[Auth API] Logout error:', error);
@@ -243,7 +261,7 @@ export async function getMe(): Promise<User> {
     const user = JSON.parse(userData);
 
     // Import database to get latest user data
-    const { db } = await import('@/db/database');
+    const db = await getDb();
 
     // Get fresh user data from database
     const dbUser = await db.getFirstAsync<any>(
@@ -260,15 +278,17 @@ export async function getMe(): Promise<User> {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    const currentUser = {
+    const currentUser: User = {
       id: dbUser.id,
       email: dbUser.email,
       firstName,
       lastName,
-      phoneNumber: dbUser.phoneNumber || null,
+      phoneNumber: dbUser.phoneNumber || undefined,
       emailVerified: dbUser.emailVerified === 1,
       twoFactorEnabled: dbUser.twoFactorEnabled === 1,
-      profilePicture: dbUser.profilePicture || null,
+      accountType: (dbUser.accountType as AccountType) || 'individual',
+      organizationId: dbUser.organizationId || undefined,
+      role: dbUser.role || undefined,
       createdAt: dbUser.createdAt,
       updatedAt: dbUser.updatedAt,
     };
@@ -296,6 +316,7 @@ export async function forgotPassword(
 ): Promise<ForgotPasswordResponse> {
   // Local demo - not implemented
   return {
+    success: true,
     message: 'Password reset link sent to your email',
   };
 }
@@ -308,6 +329,7 @@ export async function resetPassword(
 ): Promise<ResetPasswordResponse> {
   // Local demo - not implemented
   return {
+    success: true,
     message: 'Password reset successfully',
   };
 }
@@ -330,6 +352,7 @@ export async function changePassword(
     }
 
     const user = JSON.parse(userData);
+    const db = await getDb();
 
     // Verify current password
     const dbUser = await db.getFirstAsync<any>(
@@ -348,6 +371,7 @@ export async function changePassword(
     );
 
     return {
+      success: true,
       message: 'Password changed successfully',
     };
   } catch (error) {
@@ -364,7 +388,7 @@ export async function refreshToken(
 ): Promise<RefreshTokenResponse> {
   // Local demo - just return same token
   return {
-    token: DEMO_TOKEN,
+    token: 'demo-token',
     refreshToken: 'demo-refresh-token',
   };
 }
@@ -397,6 +421,7 @@ export async function deleteAccount(password: string): Promise<{ message: string
     }
 
     const user = JSON.parse(userData);
+    const db = await getDb();
 
     // Verify password
     const dbUser = await db.getFirstAsync<any>(
@@ -442,6 +467,7 @@ export async function updateProfile(data: {
 
     const user = JSON.parse(userData);
     const now = new Date().toISOString();
+    const db = await getDb();
 
     // Build update query
     const updates: string[] = [];
@@ -498,6 +524,7 @@ export async function checkEmailAvailability(
   email: string
 ): Promise<{ available: boolean }> {
   try {
+    const db = await getDb();
     const user = await db.getFirstAsync<any>(
       'SELECT id FROM user WHERE email = ?',
       [email]
@@ -549,12 +576,67 @@ export async function revokeAllSessions(): Promise<{ message: string }> {
   return { message: 'All sessions revoked' };
 }
 
+/**
+ * OTP Type for resend
+ */
+export type OtpType = 'EMAIL_VERIFICATION' | 'TWO_FACTOR';
+
+/**
+ * Resend OTP Request
+ */
+export interface ResendOtpRequest {
+  userId?: string;
+  email?: string;
+  type: OtpType;
+}
+
+/**
+ * Resend OTP Response
+ */
+export interface ResendOtpResponse {
+  success: boolean;
+  message: string;
+  expiresIn?: number; // seconds until OTP expires
+}
+
+/**
+ * Resend OTP (verification code)
+ */
+export async function resendOtp(data: ResendOtpRequest): Promise<ResendOtpResponse> {
+  try {
+    // Call backend API
+    const response = await api.post<ResendOtpResponse>('/auth/resend-otp', {
+      userId: data.userId,
+      email: data.email,
+      type: data.type,
+    });
+
+    return response;
+  } catch (error: any) {
+    console.error('[Auth API] Resend OTP error:', error);
+
+    // For demo mode, return success
+    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+      return {
+        success: true,
+        message: data.type === 'EMAIL_VERIFICATION'
+          ? 'Verification code sent to your email'
+          : 'Authentication code sent',
+        expiresIn: 600, // 10 minutes
+      };
+    }
+
+    throw new Error(error.message || 'Failed to resend code');
+  }
+}
+
 export const authApi = {
   login,
   signup,
   logout,
   verifyEmail,
   resendVerificationEmail,
+  resendOtp,
   enable2FA,
   verify2FA,
   disable2FA,
