@@ -1,6 +1,6 @@
 /**
  * Notification Settings Screen
- * Manage notification preferences and quiet hours
+ * Manage notification preferences matching web API
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import type { SettingsScreenNavigationProp } from '@/navigation/types';
+import type { AppScreenNavigationProp } from '@/navigation/types';
 
 import { Header } from '@/components/shared';
 import { Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
@@ -32,44 +32,39 @@ interface NotificationOption {
   id: keyof NotificationSettings;
   title: string;
   description: string;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
+// Exactly 4 notification preference toggles matching web API
 const NOTIFICATION_OPTIONS: NotificationOption[] = [
   {
-    id: 'profileAccess',
-    title: 'Profile Access',
-    description: 'Get notified when your emergency profile is accessed',
-    icon: 'alert-circle',
+    id: 'notifyProfileAccess',
+    title: 'Profile Access Alerts',
+    description: 'Get notified when someone views your emergency profile',
+    icon: 'eye-outline',
   },
   {
-    id: 'healthReminder',
-    title: 'Health Reminders',
-    description: 'Medication and health check reminders',
-    icon: 'medical',
+    id: 'notifySubscriptionUpdates',
+    title: 'Subscription Updates',
+    description: 'Billing reminders and subscription changes',
+    icon: 'card-outline',
   },
   {
-    id: 'subscription',
-    title: 'Subscription',
-    description: 'Subscription and billing updates',
-    icon: 'card',
-  },
-  {
-    id: 'security',
+    id: 'notifySecurityAlerts',
     title: 'Security Alerts',
-    description: 'Important security notifications',
-    icon: 'shield-checkmark',
+    description: 'Login alerts and password change notifications',
+    icon: 'shield-outline',
   },
   {
-    id: 'marketing',
-    title: 'News & Updates',
-    description: 'New features and promotional content',
-    icon: 'megaphone',
+    id: 'notifyMarketingEmails',
+    title: 'Marketing Emails',
+    description: 'Product updates and promotional offers',
+    icon: 'mail-outline',
   },
 ];
 
 export default function NotificationSettingsScreen() {
-  const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const navigation = useNavigation<AppScreenNavigationProp>();
   const queryClient = useQueryClient();
   const { toastConfig, hideToast, success, error: showError } = useToast();
 
@@ -83,7 +78,7 @@ export default function NotificationSettingsScreen() {
     queryFn: getNotificationSettings,
   });
 
-  // Update settings mutation
+  // Update settings mutation - auto-save on change
   const updateMutation = useMutation({
     mutationFn: updateNotificationSettings,
     onSuccess: (updatedSettings) => {
@@ -110,6 +105,7 @@ export default function NotificationSettingsScreen() {
     };
 
     setLocalSettings(updatedSettings);
+    // Auto-save on change
     updateMutation.mutate({ [key]: value });
   };
 
@@ -167,7 +163,7 @@ export default function NotificationSettingsScreen() {
     return (
       <View key={option.id} style={styles.option}>
         <View style={styles.optionIcon}>
-          <Ionicons name={option.icon as any} size={24} color={PRIMARY[600]} />
+          <Ionicons name={option.icon} size={24} color={PRIMARY[600]} />
         </View>
 
         <View style={styles.optionContent}>
@@ -226,7 +222,7 @@ export default function NotificationSettingsScreen() {
           </Card>
         </View>
 
-        {/* Notification Types */}
+        {/* Notification Types - Exactly 4 toggles matching web */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notification Types</Text>
           <Card variant="elevated" padding="none">

@@ -61,11 +61,10 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     // Return default settings on error
     return {
       enabled: true,
-      profileAccess: true,
-      healthReminder: true,
-      subscription: true,
-      security: true,
-      marketing: false,
+      notifyProfileAccess: true,
+      notifySubscriptionUpdates: true,
+      notifySecurityAlerts: true,
+      notifyMarketingEmails: false,
       sound: true,
       vibration: true,
       quietHoursEnabled: false,

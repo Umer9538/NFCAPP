@@ -25,11 +25,12 @@ export interface PushNotificationToken {
 
 export interface NotificationSettings {
   enabled: boolean;
-  profileAccess: boolean;
-  healthReminder: boolean;
-  subscription: boolean;
-  security: boolean;
-  marketing: boolean;
+  // API field names matching web
+  notifyProfileAccess: boolean;
+  notifySubscriptionUpdates: boolean;
+  notifySecurityAlerts: boolean;
+  notifyMarketingEmails: boolean;
+  // Local preferences
   sound: boolean;
   vibration: boolean;
   quietHoursEnabled: boolean;
