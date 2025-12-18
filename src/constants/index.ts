@@ -106,14 +106,15 @@ export const MEDICAL_CONDITION_CATEGORIES = [
 
 // Medication Frequency Options
 export const MEDICATION_FREQUENCY = [
-  'Once daily',
-  'Twice daily',
-  'Three times daily',
-  'Four times daily',
-  'As needed',
-  'Weekly',
-  'Monthly',
-  'Other',
+  { value: 'once_daily', label: 'Once daily' },
+  { value: 'twice_daily', label: 'Twice daily' },
+  { value: 'three_times_daily', label: 'Three times daily' },
+  { value: 'every_4_hours', label: 'Every 4 hours' },
+  { value: 'every_6_hours', label: 'Every 6 hours' },
+  { value: 'every_8_hours', label: 'Every 8 hours' },
+  { value: 'once_weekly', label: 'Once weekly' },
+  { value: 'as_needed', label: 'As needed' },
+  { value: 'custom', label: 'Custom' },
 ] as const;
 
 // App Configuration
@@ -130,6 +131,8 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: '@medguard:auth_token',
   REFRESH_TOKEN: '@medguard:refresh_token',
   USER_DATA: '@medguard:user_data',
+  ACCOUNT_TYPE: '@medguard:account_type',
+  ORGANIZATION_ID: '@medguard:organization_id',
   THEME_PREFERENCE: '@medguard:theme',
   BIOMETRIC_ENABLED: '@medguard:biometric_enabled',
   LAST_SYNC: '@medguard:last_sync',
@@ -150,4 +153,4 @@ export type BloodType = (typeof BLOOD_TYPES)[number];
 export type AllergySeverity = (typeof ALLERGY_SEVERITY)[number]['value'];
 export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
 export type MedicalConditionCategory = (typeof MEDICAL_CONDITION_CATEGORIES)[number];
-export type MedicationFrequency = (typeof MEDICATION_FREQUENCY)[number];
+export type MedicationFrequency = (typeof MEDICATION_FREQUENCY)[number]['value'];

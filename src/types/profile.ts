@@ -16,14 +16,14 @@ export interface Allergy {
   id: string;
   allergen: string;
   severity: AllergySeverity;
-  reaction?: string;
+  reaction: string;
 }
 
 export interface Medication {
   id: string;
   name: string;
   dosage: string;
-  frequency: MedicationFrequency;
+  frequency: string; // Can be preset value or custom text
   prescribedBy?: string;
   startDate?: string;
   notes?: string;
@@ -71,13 +71,13 @@ export interface UpdateProfileRequest {
 export interface AddAllergyRequest {
   allergen: string;
   severity: AllergySeverity;
-  reaction?: string;
+  reaction: string;
 }
 
 export interface AddMedicationRequest {
   name: string;
   dosage: string;
-  frequency: MedicationFrequency;
+  frequency: string; // Preset value or custom text
   prescribedBy?: string;
   startDate?: string;
   notes?: string;
