@@ -67,6 +67,7 @@ import {
   SetupOrganizationScreen,
   EmployeesScreen,
   AddEmployeeScreen,
+  EmployeeDetailsScreen,
   OrganizationMedicalInfoScreen,
   IncidentReportsScreen,
 } from '@/screens/organization';
@@ -417,6 +418,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="AddEmployee"
         component={AddEmployeeScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="EmployeeDetails"
+        component={EmployeeDetailsScreen}
         options={{
           headerShown: false,
         }}
