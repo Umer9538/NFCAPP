@@ -39,6 +39,7 @@ const initialState = {
   accountType: null as AccountType | null,
   organizationId: null as string | null,
   isOrgAdmin: false,
+  suspended: false,
 };
 
 /**
@@ -89,6 +90,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const accountType = user.accountType || 'individual';
       const organizationId = user.organizationId || null;
       const isOrgAdmin = user.role === 'admin' && accountType !== 'individual';
+      const suspended = user.suspended || false;
 
       set({
         user,
@@ -96,6 +98,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accountType,
         organizationId,
         isOrgAdmin,
+        suspended,
       });
 
       // Persist user data
@@ -113,6 +116,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accountType: null,
         organizationId: null,
         isOrgAdmin: false,
+        suspended: false,
       });
 
       // Clear persisted data
@@ -168,6 +172,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   /**
+   * Check if user account is suspended
+   */
+  isSuspended: () => {
+    const { suspended } = get();
+    return suspended;
+  },
+
+  /**
    * Login user
    */
   login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -205,6 +217,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             accountType: 'individual',
             organizationId: undefined,
             role: undefined,
+            suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -233,6 +246,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             accountType: 'corporate',
             organizationId: 'org-123',
             role: 'admin',
+            suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -261,6 +275,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             accountType: 'construction',
             organizationId: 'construction-org-456',
             role: 'user',
+            suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -289,6 +304,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             accountType: 'education',
             organizationId: 'edu-org-789',
             role: 'user',
+            suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -396,6 +412,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const accountType = (user?.accountType || storedAccountType || 'individual') as AccountType;
       const organizationId = user?.organizationId || storedOrgId || null;
       const isOrgAdmin = user?.role === 'admin' && accountType !== 'individual';
+      const suspended = user?.suspended || false;
 
       // Set initial state
       set({
@@ -407,6 +424,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accountType,
         organizationId,
         isOrgAdmin,
+        suspended,
       });
 
       // Validate token with backend (don't block UI)
@@ -442,6 +460,7 @@ export const selectError = (state: AuthStore) => state.error;
 export const selectAccountType = (state: AuthStore) => state.accountType;
 export const selectOrganizationId = (state: AuthStore) => state.organizationId;
 export const selectIsOrgAdmin = (state: AuthStore) => state.isOrgAdmin;
+export const selectSuspended = (state: AuthStore) => state.suspended;
 export const selectIsOrganizationUser = (state: AuthStore) =>
   state.accountType !== null && state.accountType !== 'individual';
 
@@ -456,4 +475,5 @@ export const authActions = {
   setUser: (user: User | null) => useAuthStore.getState().setUser(user),
   clearError: () => useAuthStore.getState().clearError(),
   isOrganizationUser: () => useAuthStore.getState().isOrganizationUser(),
+  isSuspended: () => useAuthStore.getState().isSuspended(),
 };
