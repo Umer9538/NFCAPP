@@ -17,6 +17,13 @@ import {
 // Account Types
 export type AccountType = 'individual' | 'corporate' | 'construction' | 'education';
 
+// User Role Type
+export type UserRole = 'admin' | 'user';
+
+// Route names for access control
+export type IndividualRoute = 'Home' | 'Profile' | 'Bracelet' | 'Settings' | 'Subscription' | 'AuditLogs' | 'Medical';
+export type OrganizationRoute = 'Home' | 'Employees' | 'MedicalInfo' | 'IncidentReports' | 'Settings' | 'AddEmployee' | 'EmployeeDetails' | 'Profile';
+
 // Navigation Item Interface
 export interface NavigationItem {
   id: string;
@@ -420,12 +427,74 @@ export function getAccountTypes(): AccountType[] {
 }
 
 /**
- * Get navigation items for a specific account type
- * @param accountType - The type of account
- * @returns Array of navigation items
+ * Check if the role is admin
+ * @param role - The user role
+ * @returns True if role is admin
  */
-export function getNavigationItems(accountType: AccountType): NavigationItem[] {
-  return getDashboardConfig(accountType).navigationItems;
+export function isAdmin(role?: UserRole | string | null): boolean {
+  return role === 'admin';
+}
+
+/**
+ * Check if a user can access a specific route
+ * @param accountType - The type of account
+ * @param role - The user role
+ * @param routeName - The route name to check
+ * @returns True if the user can access the route
+ */
+export function canAccessRoute(
+  accountType: AccountType,
+  role: UserRole | string | null | undefined,
+  routeName: string
+): boolean {
+  // Individual users can access all individual routes
+  if (accountType === 'individual') {
+    const individualRoutes: IndividualRoute[] = ['Home', 'Profile', 'Bracelet', 'Settings', 'Subscription', 'AuditLogs', 'Medical'];
+    return individualRoutes.includes(routeName as IndividualRoute);
+  }
+
+  // Organization users
+  const isUserAdmin = isAdmin(role);
+
+  // Admin can access all organization routes
+  if (isUserAdmin) {
+    return true;
+  }
+
+  // Non-admin org users have limited access
+  const nonAdminAllowedRoutes = ['Home', 'Profile', 'Settings'];
+  return nonAdminAllowedRoutes.includes(routeName);
+}
+
+/**
+ * Get navigation items for a specific account type and role
+ * @param accountType - The type of account
+ * @param role - The user role (optional, for organization users)
+ * @returns Array of navigation items filtered by role
+ */
+export function getNavigationItems(
+  accountType: AccountType,
+  role?: UserRole | string | null
+): NavigationItem[] {
+  const config = getDashboardConfig(accountType);
+
+  // Individual users get all their navigation items
+  if (accountType === 'individual') {
+    return config.navigationItems;
+  }
+
+  // Organization users: filter based on role
+  const isUserAdmin = isAdmin(role);
+
+  if (isUserAdmin) {
+    // Admins see all navigation items
+    return config.navigationItems;
+  }
+
+  // Non-admin org users see limited navigation items
+  // They can only see: Dashboard (Home), My Profile, Settings
+  const allowedIds = ['dashboard', 'profile', 'settings'];
+  return config.navigationItems.filter((item) => allowedIds.includes(item.id));
 }
 
 /**
@@ -478,4 +547,6 @@ export default {
   getFeatureFlags,
   getThemeColors,
   isFeatureEnabled,
+  isAdmin,
+  canAccessRoute,
 };
