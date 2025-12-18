@@ -13,6 +13,7 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,7 +39,7 @@ import {
 
 export default function LoginScreen() {
   const navigation = useNavigation<AuthScreenNavigationProp>();
-  const { login, isLoading, error, clearError } = useAuth();
+  const { login, logout, isLoading, error, clearError } = useAuth();
   const { toastConfig, hideToast, success, error: showError } = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -156,6 +157,23 @@ export default function LoginScreen() {
           tempToken: response.token,
         });
       } else {
+        // Check if user is suspended
+        if (response.user?.suspended) {
+          Alert.alert(
+            'Account Suspended',
+            'Your account has been suspended by your organization administrator. Please contact your administrator for assistance.',
+            [
+              {
+                text: 'OK',
+                onPress: async () => {
+                  await logout();
+                },
+              },
+            ]
+          );
+          return;
+        }
+
         success('Login successful!');
         // Navigation handled by RootNavigator
       }
