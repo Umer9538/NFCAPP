@@ -24,6 +24,7 @@ import {
   CheckCircle,
   Clock,
   UserPlus,
+  UserX,
 } from 'lucide-react-native';
 
 import { Card, Badge, LoadingSpinner } from '@/components/ui';
@@ -35,12 +36,15 @@ import { PRIMARY, SEMANTIC, STATUS, GRAY } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 import type { AppScreenNavigationProp } from '@/navigation/types';
 
+type FilterOption = 'all' | 'active' | 'suspended';
+
 export default function EmployeesScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
   const accountType = useAuthStore((state) => state.accountType) || 'corporate';
   const dashboardConfig = getDashboardConfig(accountType);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<FilterOption>('all');
 
   // Fetch employees
   const {
@@ -57,17 +61,25 @@ export default function EmployeesScreen() {
 
   // Calculate stats
   const totalCount = employees.length;
-  const completeProfiles = employees.filter((e) => e.profileComplete).length;
-  const pendingSetup = employees.filter((e) => !e.profileComplete || e.status === 'pending').length;
+  const activeCount = employees.filter((e) => !e.suspended).length;
+  const suspendedCount = employees.filter((e) => e.suspended).length;
 
-  // Filter employees locally for immediate search feedback
-  const filteredEmployees = searchQuery
-    ? employees.filter(
-        (e) =>
-          e.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          e.email.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : employees;
+  // Filter employees locally for immediate search feedback and status filter
+  const filteredEmployees = employees.filter((e) => {
+    // Apply search filter
+    const matchesSearch =
+      !searchQuery ||
+      e.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.email.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Apply status filter
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'active' && !e.suspended) ||
+      (filter === 'suspended' && e.suspended);
+
+    return matchesSearch && matchesFilter;
+  });
 
   const handleAddEmployee = () => {
     navigation.navigate('AddEmployee', {});
@@ -96,13 +108,17 @@ export default function EmployeesScreen() {
   };
 
   const getStatusBadge = (employee: Employee) => {
+    // Suspended takes priority
+    if (employee.suspended) {
+      return { label: 'Suspended', color: STATUS.warning.main };
+    }
     if (employee.status === 'pending') {
-      return { label: 'Pending', color: STATUS.warning.main };
+      return { label: 'Pending', color: GRAY[500] };
     }
     if (employee.profileComplete) {
       return { label: 'Complete', color: STATUS.success.main };
     }
-    return { label: 'Incomplete', color: STATUS.warning.main };
+    return { label: 'Incomplete', color: GRAY[500] };
   };
 
   const renderEmployee = useCallback(
@@ -182,20 +198,73 @@ export default function EmployeesScreen() {
             <CheckCircle size={16} color={STATUS.success.main} />
           </View>
           <View>
-            <Text style={styles.statValue}>{completeProfiles}</Text>
-            <Text style={styles.statLabel}>Complete</Text>
+            <Text style={styles.statValue}>{activeCount}</Text>
+            <Text style={styles.statLabel}>Active</Text>
           </View>
         </View>
 
         <View style={styles.statItem}>
           <View style={[styles.statIcon, { backgroundColor: `${STATUS.warning.main}15` }]}>
-            <Clock size={16} color={STATUS.warning.main} />
+            <UserX size={16} color={STATUS.warning.main} />
           </View>
           <View>
-            <Text style={styles.statValue}>{pendingSetup}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <Text style={styles.statValue}>{suspendedCount}</Text>
+            <Text style={styles.statLabel}>Suspended</Text>
           </View>
         </View>
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        <Pressable
+          style={[
+            styles.filterTab,
+            filter === 'all' && styles.filterTabActive,
+          ]}
+          onPress={() => setFilter('all')}
+        >
+          <Text
+            style={[
+              styles.filterTabText,
+              filter === 'all' && styles.filterTabTextActive,
+            ]}
+          >
+            All
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.filterTab,
+            filter === 'active' && styles.filterTabActive,
+          ]}
+          onPress={() => setFilter('active')}
+        >
+          <Text
+            style={[
+              styles.filterTabText,
+              filter === 'active' && styles.filterTabTextActive,
+            ]}
+          >
+            Active
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.filterTab,
+            filter === 'suspended' && styles.filterTabActive,
+            filter === 'suspended' && { backgroundColor: `${STATUS.warning.main}15` },
+          ]}
+          onPress={() => setFilter('suspended')}
+        >
+          <Text
+            style={[
+              styles.filterTabText,
+              filter === 'suspended' && { color: STATUS.warning.main },
+            ]}
+          >
+            Suspended
+          </Text>
+        </Pressable>
       </View>
 
       {/* Search Bar */}
@@ -213,7 +282,7 @@ export default function EmployeesScreen() {
       </View>
 
       {/* Results Count */}
-      {searchQuery && (
+      {(searchQuery || filter !== 'all') && (
         <Text style={styles.resultsCount}>
           {filteredEmployees.length} result{filteredEmployees.length !== 1 ? 's' : ''} found
         </Text>
@@ -400,6 +469,29 @@ const styles = StyleSheet.create({
     height: 44,
     fontSize: 16,
     color: SEMANTIC.text.primary,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing[2],
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[3],
+    borderRadius: 8,
+    backgroundColor: GRAY[100],
+    alignItems: 'center',
+  },
+  filterTabActive: {
+    backgroundColor: `${PRIMARY[600]}15`,
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: GRAY[600],
+  },
+  filterTabTextActive: {
+    color: PRIMARY[600],
   },
   resultsCount: {
     fontSize: 13,
