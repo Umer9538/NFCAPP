@@ -3,6 +3,13 @@
  * Matching Next.js backend schema
  */
 
+import type { AccountType } from '@/config/dashboardConfig';
+
+/**
+ * User role within an organization
+ */
+export type UserRole = 'admin' | 'user';
+
 /**
  * User model matching backend
  */
@@ -14,6 +21,9 @@ export interface User {
   phoneNumber?: string;
   emailVerified: boolean;
   twoFactorEnabled: boolean;
+  accountType: AccountType;
+  organizationId?: string;
+  role?: UserRole;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +56,8 @@ export interface SignupRequest {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
+  accountType?: AccountType;
+  organizationId?: string;
 }
 
 /**
@@ -163,6 +175,9 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  accountType: AccountType | null;
+  organizationId: string | null;
+  isOrgAdmin: boolean;
 }
 
 /**
@@ -178,6 +193,7 @@ export interface AuthActions {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
+  isOrganizationUser: () => boolean;
 }
 
 /**

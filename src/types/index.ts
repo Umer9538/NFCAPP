@@ -1,10 +1,19 @@
 // Core types for the MedGuard application
+import type { AccountType } from '@/config/dashboardConfig';
+
+export type UserRole = 'admin' | 'user';
+
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   phoneNumber?: string;
+  emailVerified: boolean;
+  twoFactorEnabled: boolean;
+  accountType: AccountType;
+  organizationId?: string;
+  role?: UserRole;
   createdAt: string;
   updatedAt: string;
 }
