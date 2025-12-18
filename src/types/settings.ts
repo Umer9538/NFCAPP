@@ -19,8 +19,10 @@ export interface UserProfile {
 export interface ProfileUpdateInput {
   firstName?: string;
   lastName?: string;
+  email?: string;
   username?: string;
   phone?: string;
+  phoneNumber?: string;
   dateOfBirth?: string;
   profilePicture?: string;
 }

@@ -46,7 +46,7 @@ export async function getProfile(): Promise<UserProfile> {
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
-    phoneNumber: user.phone || '',
+    phone: user.phone || '',
     dateOfBirth: user.dateOfBirth || '',
     profilePicture: user.profilePicture || undefined,
     createdAt: user.createdAt,
@@ -54,10 +54,19 @@ export async function getProfile(): Promise<UserProfile> {
   };
 }
 
+export interface ProfileUpdateResponse extends UserProfile {
+  requiresEmailVerification?: boolean;
+  pendingEmail?: string;
+}
+
 /**
  * Update user profile
+ * If email is changed, returns requiresEmailVerification: true
  */
-export async function updateProfile(data: ProfileUpdateInput): Promise<UserProfile> {
+export async function updateProfile(data: ProfileUpdateInput): Promise<ProfileUpdateResponse> {
+  const currentProfile = await getProfile();
+  const emailChanged = data.email && data.email !== currentProfile.email;
+
   await userService.update(DEMO_USER_ID, {
     firstName: data.firstName,
     lastName: data.lastName,
@@ -66,7 +75,18 @@ export async function updateProfile(data: ProfileUpdateInput): Promise<UserProfi
     profilePicture: data.profilePicture,
   });
 
-  return getProfile();
+  const updatedProfile = await getProfile();
+
+  // If email is being changed, require verification
+  if (emailChanged) {
+    return {
+      ...updatedProfile,
+      requiresEmailVerification: true,
+      pendingEmail: data.email,
+    };
+  }
+
+  return updatedProfile;
 }
 
 /**
@@ -225,6 +245,37 @@ export async function clearCache(): Promise<{ message: string }> {
   return { message: 'Cache cleared successfully' };
 }
 
+/**
+ * Verify email change with OTP code
+ */
+export async function verifyEmailChange(data: {
+  code: string;
+  newEmail: string;
+}): Promise<{ message: string; email: string }> {
+  // In demo mode, accept any 6-digit code
+  if (data.code.length !== 6 || !/^\d{6}$/.test(data.code)) {
+    throw new Error('Invalid verification code');
+  }
+
+  // Update the user's email in the database
+  await userService.update(DEMO_USER_ID, {
+    email: data.newEmail,
+  });
+
+  return {
+    message: 'Email updated successfully',
+    email: data.newEmail,
+  };
+}
+
+/**
+ * Resend email change verification code
+ */
+export async function resendEmailVerificationCode(email: string): Promise<{ message: string }> {
+  // In demo mode, just return success
+  return { message: 'Verification code sent to ' + email };
+}
+
 export const settingsApi = {
   getProfile,
   updateProfile,
@@ -244,4 +295,6 @@ export const settingsApi = {
   deleteAccount,
   getAppInfo,
   clearCache,
+  verifyEmailChange,
+  resendEmailVerificationCode,
 };
