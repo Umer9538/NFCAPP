@@ -1,14 +1,18 @@
 /**
  * App Navigator
  * Stack navigator for authenticated app screens
+ * Supports conditional navigation based on account type
  */
 
 import React from 'react';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import type { AppStackParamList } from './types';
 import DashboardNavigator from './DashboardNavigator';
+import OrganizationNavigator from './OrganizationNavigator';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { typography } from '@/theme/theme';
+import { useAuthStore } from '@/store/authStore';
+import { isOrganizationAccount } from '@/config/dashboardConfig';
 
 // Import app screens (placeholders for now)
 // Emergency Profile
@@ -58,11 +62,50 @@ import AboutScreen from '@/screens/support/AboutScreen';
 import TermsOfServiceScreen from '@/screens/support/TermsOfServiceScreen';
 import PrivacyPolicyScreen from '@/screens/support/PrivacyPolicyScreen';
 
+// Organization Management
+import {
+  SetupOrganizationScreen,
+  EmployeesScreen,
+  AddEmployeeScreen,
+  OrganizationMedicalInfoScreen,
+  IncidentReportsScreen,
+} from '@/screens/organization';
+
 const Stack = createStackNavigator<AppStackParamList>();
 
+/**
+ * Conditional Dashboard Component
+ * Shows different navigators based on account type and organization setup status
+ */
+function ConditionalDashboard() {
+  const accountType = useAuthStore((state) => state.accountType);
+  const organizationId = useAuthStore((state) => state.organizationId);
+
+  // Check if user is an organization account type
+  const isOrgUser = accountType && isOrganizationAccount(accountType);
+
+  // If org user without organization, they need to set up first
+  // This is handled by showing SetupOrganization as initial route when needed
+
+  // Show OrganizationNavigator for org users, DashboardNavigator for individuals
+  if (isOrgUser) {
+    return <OrganizationNavigator />;
+  }
+
+  return <DashboardNavigator />;
+}
+
 export default function AppNavigator() {
+  const accountType = useAuthStore((state) => state.accountType);
+  const organizationId = useAuthStore((state) => state.organizationId);
+
+  // Check if org user needs to set up organization
+  const isOrgUser = accountType && isOrganizationAccount(accountType);
+  const needsOrgSetup = isOrgUser && !organizationId;
+
   return (
     <Stack.Navigator
+      initialRouteName={needsOrgSetup ? 'SetupOrganization' : 'Dashboard'}
       screenOptions={{
         headerStyle: {
           backgroundColor: SEMANTIC.background.default,
@@ -86,7 +129,7 @@ export default function AppNavigator() {
       {/* Main Dashboard (Bottom Tabs) */}
       <Stack.Screen
         name="Dashboard"
-        component={DashboardNavigator}
+        component={ConditionalDashboard}
         options={{
           headerShown: false,
         }}
@@ -350,6 +393,48 @@ export default function AppNavigator() {
         component={PrivacyPolicyScreen}
         options={{
           title: 'Privacy Policy',
+        }}
+      />
+
+      {/* Organization Management Screens */}
+      <Stack.Screen
+        name="SetupOrganization"
+        component={SetupOrganizationScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false, // Prevent swipe back during setup
+        }}
+      />
+
+      <Stack.Screen
+        name="Employees"
+        component={EmployeesScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="AddEmployee"
+        component={AddEmployeeScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="MedicalRecords"
+        component={OrganizationMedicalInfoScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="IncidentReports"
+        component={IncidentReportsScreen}
+        options={{
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

@@ -18,9 +18,12 @@ export type OnboardingStackParamList = {
 /**
  * Auth Stack Param List
  */
+import type { AccountType } from '@/config/dashboardConfig';
+
 export type AuthStackParamList = {
   Login: undefined;
-  Signup: undefined;
+  AccountType: undefined;
+  Signup: { accountType?: AccountType };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
   VerifyEmail: { email: string };
@@ -28,13 +31,38 @@ export type AuthStackParamList = {
 };
 
 /**
- * Dashboard Tab Param List
+ * Dashboard Tab Param List (Individual Users)
  */
 export type DashboardTabParamList = {
   Home: undefined;
   Profile: undefined;
   Bracelet: undefined;
   Settings: undefined;
+};
+
+/**
+ * Organization Dashboard Tab Param List (Organization Users)
+ */
+export type OrganizationTabParamList = {
+  Home: undefined;
+  Employees: undefined;
+  MedicalInfo: undefined;
+  Settings: undefined;
+};
+
+/**
+ * Organization Stack Param List
+ */
+export type OrganizationStackParamList = {
+  SetupOrganization: undefined;
+  Employees: undefined;
+  AddEmployee: { employeeId?: string };
+  EmployeeDetails: { employeeId: string };
+  OrganizationMedicalInfo: undefined;
+  IncidentReports: undefined;
+  CreateIncidentReport: undefined;
+  IncidentReportDetails: { reportId: string };
+  OrganizationSettings: undefined;
 };
 
 /**
@@ -89,6 +117,17 @@ export type AppStackParamList = {
   About: undefined;
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
+
+  // Organization Management
+  SetupOrganization: undefined;
+  OrganizationSettings: undefined;
+  Employees: undefined;
+  AddEmployee: { employeeId?: string };
+  EmployeeDetails: { employeeId: string };
+  MedicalRecords: undefined;
+  IncidentReports: undefined;
+  CreateIncidentReport: undefined;
+  IncidentReportDetails: { reportId: string };
 };
 
 /**
@@ -132,6 +171,20 @@ export type DashboardTabRouteProp<T extends keyof DashboardTabParamList> = Route
   T
 >;
 
+// Organization Tab Props
+export type OrganizationTabNavigationProp = BottomTabNavigationProp<OrganizationTabParamList>;
+export type OrganizationTabRouteProp<T extends keyof OrganizationTabParamList> = RouteProp<
+  OrganizationTabParamList,
+  T
+>;
+
+// Organization Stack Props
+export type OrganizationScreenNavigationProp = StackNavigationProp<OrganizationStackParamList>;
+export type OrganizationScreenRouteProp<T extends keyof OrganizationStackParamList> = RouteProp<
+  OrganizationStackParamList,
+  T
+>;
+
 // App Navigator Props
 export type AppScreenNavigationProp = StackNavigationProp<AppStackParamList>;
 export type AppScreenRouteProp<T extends keyof AppStackParamList> = RouteProp<
@@ -166,6 +219,16 @@ export type AppScreenProps<T extends keyof AppStackParamList> = {
   route: AppScreenRouteProp<T>;
 };
 
+export type OrganizationTabScreenProps<T extends keyof OrganizationTabParamList> = {
+  navigation: OrganizationTabNavigationProp;
+  route: OrganizationTabRouteProp<T>;
+};
+
+export type OrganizationScreenProps<T extends keyof OrganizationStackParamList> = {
+  navigation: OrganizationScreenNavigationProp;
+  route: OrganizationScreenRouteProp<T>;
+};
+
 /**
  * Deep linking configuration types
  */
@@ -174,6 +237,7 @@ export type DeepLinkConfig = {
     Auth: {
       screens: {
         Login: string;
+        AccountType: string;
         Signup: string;
         ForgotPassword: string;
         ResetPassword: string;
