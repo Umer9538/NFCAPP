@@ -41,6 +41,7 @@ export interface Employee {
   profileComplete: boolean;
   emailVerified: boolean;
   status: 'active' | 'pending' | 'inactive';
+  suspended: boolean;
   joinedAt?: string;
   createdAt: string;
 }
@@ -143,6 +144,16 @@ export interface AddEmployeeRequest {
   phoneNumber?: string;
   department?: string;
   position?: string;
+}
+
+/**
+ * Update Employee Request
+ */
+export interface UpdateEmployeeRequest {
+  employeeId: string;
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
 }
 
 /**
@@ -301,6 +312,7 @@ export async function getEmployees(
           profileComplete: true,
           emailVerified: true,
           status: 'active',
+          suspended: false,
           joinedAt: '2024-01-15T00:00:00Z',
           createdAt: '2024-01-15T00:00:00Z',
         },
@@ -314,6 +326,7 @@ export async function getEmployees(
           profileComplete: true,
           emailVerified: true,
           status: 'active',
+          suspended: false,
           joinedAt: '2024-02-01T00:00:00Z',
           createdAt: '2024-02-01T00:00:00Z',
         },
@@ -325,6 +338,7 @@ export async function getEmployees(
           profileComplete: false,
           emailVerified: false,
           status: 'pending',
+          suspended: false,
           createdAt: '2024-03-10T00:00:00Z',
         },
       ];
@@ -364,6 +378,7 @@ export async function addEmployee(data: AddEmployeeRequest): Promise<Employee> {
         profileComplete: false,
         emailVerified: false,
         status: 'pending',
+        suspended: false,
         createdAt: new Date().toISOString(),
       };
       return mockEmployee;
@@ -391,6 +406,83 @@ export async function removeEmployee(employeeId: string): Promise<{ success: boo
     }
 
     throw new Error(error.message || 'Failed to remove employee');
+  }
+}
+
+/**
+ * Update employee information
+ */
+export async function updateEmployee(data: UpdateEmployeeRequest): Promise<Employee> {
+  try {
+    const response = await api.put<Employee>('/organizations/employees', data);
+    return response;
+  } catch (error: any) {
+    console.error('[Organizations API] Update employee error:', error);
+
+    // Demo mode fallback
+    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+      const mockEmployee: Employee = {
+        id: data.employeeId,
+        fullName: data.fullName || 'Updated Employee',
+        email: data.email || 'updated@demo.com',
+        phoneNumber: data.phoneNumber,
+        profileComplete: true,
+        emailVerified: true,
+        status: 'active',
+        suspended: false,
+        createdAt: new Date().toISOString(),
+      };
+      return mockEmployee;
+    }
+
+    throw new Error(error.message || 'Failed to update employee');
+  }
+}
+
+/**
+ * Delete employee from organization
+ */
+export async function deleteEmployee(employeeId: string): Promise<{ success: boolean }> {
+  try {
+    const response = await api.delete<{ success: boolean }>(
+      '/organizations/employees',
+      { data: { employeeId } }
+    );
+    return response;
+  } catch (error: any) {
+    console.error('[Organizations API] Delete employee error:', error);
+
+    // Demo mode fallback
+    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+      return { success: true };
+    }
+
+    throw new Error(error.message || 'Failed to delete employee');
+  }
+}
+
+/**
+ * Suspend or unsuspend employee access
+ */
+export async function suspendEmployee(
+  employeeId: string,
+  suspend: boolean
+): Promise<{ success: boolean }> {
+  try {
+    const response = await api.patch<{ success: boolean }>(
+      '/organizations/employees',
+      { employeeId, action: suspend ? 'suspend' : 'unsuspend' }
+    );
+    return response;
+  } catch (error: any) {
+    console.error('[Organizations API] Suspend employee error:', error);
+
+    // Demo mode fallback
+    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
+      return { success: true };
+    }
+
+    throw new Error(error.message || `Failed to ${suspend ? 'suspend' : 'unsuspend'} employee`);
   }
 }
 
@@ -689,6 +781,9 @@ export const organizationsApi = {
   updateMyOrg,
   getEmployees,
   addEmployee,
+  updateEmployee,
+  deleteEmployee,
+  suspendEmployee,
   removeEmployee,
   resendEmployeeInvite,
   getMedicalInfo,
