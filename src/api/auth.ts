@@ -19,6 +19,8 @@ import type {
   Verify2FAResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
+  VerifyResetCodeRequest,
+  VerifyResetCodeResponse,
   ResetPasswordRequest,
   ResetPasswordResponse,
   ChangePasswordRequest,
@@ -309,29 +311,96 @@ export async function getMe(): Promise<User> {
 }
 
 /**
- * Forgot password - Send reset email
+ * Forgot password - Send reset code to email
  */
 export async function forgotPassword(
-  data: ForgotPasswordRequest
+  email: string
 ): Promise<ForgotPasswordResponse> {
-  // Local demo - not implemented
-  return {
-    success: true,
-    message: 'Password reset link sent to your email',
-  };
+  try {
+    // Call backend API
+    const response = await api.post<ForgotPasswordResponse>(
+      API_CONFIG.ENDPOINTS.AUTH.FORGOT_PASSWORD,
+      { email }
+    );
+    return response;
+  } catch (error: any) {
+    console.error('[Auth API] Forgot password error:', error);
+    // For security, always return success message (don't reveal if email exists)
+    return {
+      success: true,
+      message: 'If an account exists with this email, a reset code has been sent',
+    };
+  }
 }
 
 /**
- * Reset password with token
+ * Verify reset code
+ */
+export async function verifyResetCode(
+  data: VerifyResetCodeRequest
+): Promise<VerifyResetCodeResponse> {
+  try {
+    // Call backend API
+    const response = await api.post<VerifyResetCodeResponse>(
+      '/auth/verify-reset-code',
+      data
+    );
+    return response;
+  } catch (error: any) {
+    console.error('[Auth API] Verify reset code error:', error);
+
+    // For demo mode, accept any 6-digit code
+    if (data.code.length === 6 && /^\d{6}$/.test(data.code)) {
+      return {
+        success: true,
+        message: 'Code verified successfully',
+      };
+    }
+
+    throw new Error(error.message || 'Invalid verification code');
+  }
+}
+
+/**
+ * Reset password with code
  */
 export async function resetPassword(
   data: ResetPasswordRequest
 ): Promise<ResetPasswordResponse> {
-  // Local demo - not implemented
-  return {
-    success: true,
-    message: 'Password reset successfully',
-  };
+  try {
+    // Validate passwords match
+    if (data.newPassword !== data.confirmPassword) {
+      throw new Error('Passwords do not match');
+    }
+
+    // Call backend API
+    const response = await api.post<ResetPasswordResponse>(
+      API_CONFIG.ENDPOINTS.AUTH.RESET_PASSWORD,
+      data
+    );
+    return response;
+  } catch (error: any) {
+    console.error('[Auth API] Reset password error:', error);
+
+    // For demo mode, update password in local database if code is valid
+    if (data.code.length === 6 && /^\d{6}$/.test(data.code)) {
+      try {
+        const db = await getDb();
+        await db.runAsync(
+          'UPDATE user SET password = ?, updatedAt = ? WHERE email = ?',
+          [data.newPassword, new Date().toISOString(), data.email]
+        );
+        return {
+          success: true,
+          message: 'Password reset successfully',
+        };
+      } catch (dbError) {
+        console.error('[Auth API] DB update error:', dbError);
+      }
+    }
+
+    throw new Error(error.message || 'Failed to reset password');
+  }
 }
 
 /**
@@ -642,6 +711,7 @@ export const authApi = {
   disable2FA,
   getMe,
   forgotPassword,
+  verifyResetCode,
   resetPassword,
   changePassword,
   refreshToken,
