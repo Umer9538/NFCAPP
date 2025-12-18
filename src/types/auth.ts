@@ -24,6 +24,7 @@ export interface User {
   accountType: AccountType;
   organizationId?: string;
   role?: UserRole;
+  suspended?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,11 +119,26 @@ export interface ForgotPasswordResponse {
 }
 
 /**
+ * Verify Reset Code Request
+ */
+export interface VerifyResetCodeRequest {
+  email: string;
+  code: string;
+}
+
+export interface VerifyResetCodeResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
  * Reset Password Request
  */
 export interface ResetPasswordRequest {
-  token: string;
+  email: string;
+  code: string;
   newPassword: string;
+  confirmPassword: string;
 }
 
 export interface ResetPasswordResponse {
@@ -178,6 +194,7 @@ export interface AuthState {
   accountType: AccountType | null;
   organizationId: string | null;
   isOrgAdmin: boolean;
+  suspended: boolean;
 }
 
 /**
@@ -194,6 +211,7 @@ export interface AuthActions {
   checkAuth: () => Promise<void>;
   clearError: () => void;
   isOrganizationUser: () => boolean;
+  isSuspended: () => boolean;
 }
 
 /**
