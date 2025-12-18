@@ -1,6 +1,7 @@
 /**
  * Organization Navigator
  * Bottom tab navigator for organization users
+ * Renders different tabs based on user role (admin vs regular user)
  */
 
 import React from 'react';
@@ -14,16 +15,18 @@ import {
   Settings,
   HardHat,
   GraduationCap,
+  User,
 } from 'lucide-react-native';
 
 import type { OrganizationTabParamList } from './types';
 import { PRIMARY, SEMANTIC, GRAY } from '@/constants/colors';
 import { spacing, typography } from '@/theme/theme';
 import { useAuthStore } from '@/store/authStore';
-import { getDashboardConfig } from '@/config/dashboardConfig';
+import { getDashboardConfig, isAdmin } from '@/config/dashboardConfig';
 
 // Import screens
 import HomeScreen from '@/screens/dashboard/HomeScreen';
+import ProfileScreen from '@/screens/dashboard/ProfileScreen';
 import SettingsScreen from '@/screens/settings/SettingsScreen';
 import { EmployeesScreen, OrganizationMedicalInfoScreen } from '@/screens/organization';
 
@@ -31,7 +34,11 @@ const Tab = createBottomTabNavigator<OrganizationTabParamList>();
 
 export default function OrganizationNavigator() {
   const accountType = useAuthStore((state) => state.accountType) || 'corporate';
+  const userRole = useAuthStore((state) => state.user?.role);
   const dashboardConfig = getDashboardConfig(accountType);
+
+  // Check if user is admin
+  const isUserAdmin = isAdmin(userRole);
 
   // Get terminology for tab labels
   const employeesLabel = dashboardConfig.terminology.users;
@@ -59,6 +66,8 @@ export default function OrganizationNavigator() {
               return getEmployeesIcon(focused, color, size);
             case 'MedicalInfo':
               return <FileHeart size={size} color={color} />;
+            case 'Profile':
+              return <User size={size} color={color} />;
             case 'Settings':
               return <Settings size={size} color={color} />;
             default:
@@ -100,6 +109,7 @@ export default function OrganizationNavigator() {
         },
       })}
     >
+      {/* Home - Always visible */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -109,24 +119,43 @@ export default function OrganizationNavigator() {
         }}
       />
 
-      <Tab.Screen
-        name="Employees"
-        component={EmployeesScreen}
-        options={{
-          headerShown: false,
-          tabBarLabel: employeesLabel,
-        }}
-      />
+      {/* Employees - Admin only */}
+      {isUserAdmin && (
+        <Tab.Screen
+          name="Employees"
+          component={EmployeesScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: employeesLabel,
+          }}
+        />
+      )}
 
-      <Tab.Screen
-        name="MedicalInfo"
-        component={OrganizationMedicalInfoScreen}
-        options={{
-          headerShown: false,
-          tabBarLabel: 'Medical',
-        }}
-      />
+      {/* MedicalInfo - Admin only */}
+      {isUserAdmin && (
+        <Tab.Screen
+          name="MedicalInfo"
+          component={OrganizationMedicalInfoScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Medical',
+          }}
+        />
+      )}
 
+      {/* My Profile - Non-admin only */}
+      {!isUserAdmin && (
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'My Profile',
+          }}
+        />
+      )}
+
+      {/* Settings - Always visible */}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

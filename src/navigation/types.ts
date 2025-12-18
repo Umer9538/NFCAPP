@@ -47,6 +47,7 @@ export type OrganizationTabParamList = {
   Home: undefined;
   Employees: undefined;
   MedicalInfo: undefined;
+  Profile: undefined;
   Settings: undefined;
 };
 
