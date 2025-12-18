@@ -308,7 +308,7 @@ export default function LoginScreen() {
         {/* Sign Up Link */}
         <View style={styles.signupContainer}>
           <Text style={styles.signupText}>Don't have an account? </Text>
-          <Pressable onPress={() => navigation.navigate('Signup')}>
+          <Pressable onPress={() => navigation.navigate('AccountType')}>
             <Text style={styles.signupLink}>Sign Up</Text>
           </Pressable>
         </View>

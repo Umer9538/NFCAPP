@@ -140,9 +140,12 @@ export default function VerifyEmailScreen() {
 
     try {
       setIsLoading(true);
-      await authApi.resendVerificationEmail(email);
+      const response = await authApi.resendOtp({
+        email,
+        type: 'EMAIL_VERIFICATION',
+      });
 
-      success('Verification code resent! Check your email.');
+      success(response.message || 'Verification code resent! Check your email.');
       setResendTimer(60);
       setCanResend(false);
     } catch (err: any) {

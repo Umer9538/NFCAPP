@@ -17,8 +17,15 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import type { AuthScreenNavigationProp } from '@/navigation/types';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  User,
+  Building2,
+  HardHat,
+  GraduationCap,
+} from 'lucide-react-native';
+import type { AuthScreenNavigationProp, AuthScreenRouteProp } from '@/navigation/types';
+import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,8 +36,13 @@ import { spacing } from '@/theme/theme';
 
 export default function SignupScreen() {
   const navigation = useNavigation<AuthScreenNavigationProp>();
+  const route = useRoute<AuthScreenRouteProp<'Signup'>>();
   const { signup, isLoading, error, clearError } = useAuth();
   const { toastConfig, hideToast, success, error: showError } = useToast();
+
+  // Get account type from route params (defaults to 'individual')
+  const accountType = route.params?.accountType || 'individual';
+  const dashboardConfig = getDashboardConfig(accountType);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -79,13 +91,14 @@ export default function SignupScreen() {
 
   const onSubmit = async (data: SignupFormData) => {
     try {
-      const response = await signup(
-        data.email,
-        data.password,
-        data.firstName,
-        data.lastName,
-        data.phoneNumber
-      );
+      const response = await signup({
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phoneNumber: data.phoneNumber,
+        accountType: accountType,
+      });
 
       success('Account created! Please verify your email.');
 
@@ -117,6 +130,26 @@ export default function SignupScreen() {
     return `${(score / 7) * 100}%`;
   };
 
+  // Get account type icon
+  const getAccountTypeIcon = (type: AccountType) => {
+    const iconProps = { size: 20, color: dashboardConfig.themeColors.primary };
+    switch (type) {
+      case 'corporate':
+        return <Building2 {...iconProps} />;
+      case 'construction':
+        return <HardHat {...iconProps} />;
+      case 'education':
+        return <GraduationCap {...iconProps} />;
+      default:
+        return <User {...iconProps} />;
+    }
+  };
+
+  // Handle change account type
+  const handleChangeAccountType = () => {
+    navigation.navigate('AccountType');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -131,8 +164,8 @@ export default function SignupScreen() {
         >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="medical" size={64} color={PRIMARY[600]} />
+          <View style={[styles.logoContainer, { backgroundColor: `${dashboardConfig.themeColors.primary}15` }]}>
+            <Ionicons name="medical" size={64} color={dashboardConfig.themeColors.primary} />
           </View>
           <Text style={[text.h2, styles.title]}>Create Account</Text>
           <Text style={[text.bodySmall, styles.subtitle]}>
@@ -143,6 +176,26 @@ export default function SignupScreen() {
         {/* Signup Form */}
         <Card variant="elevated" padding="lg">
           <View style={styles.form}>
+            {/* Account Type Badge */}
+            <View style={[styles.accountTypeCard, { borderColor: `${dashboardConfig.themeColors.primary}30` }]}>
+              <View style={styles.accountTypeCardLeft}>
+                <View style={[styles.accountTypeIconContainer, { backgroundColor: `${dashboardConfig.themeColors.primary}15` }]}>
+                  {getAccountTypeIcon(accountType)}
+                </View>
+                <View style={styles.accountTypeInfo}>
+                  <Text style={styles.accountTypeLabel}>Account Type</Text>
+                  <Text style={[styles.accountTypeName, { color: dashboardConfig.themeColors.primary }]}>
+                    {dashboardConfig.displayName}
+                  </Text>
+                </View>
+              </View>
+              <Pressable onPress={handleChangeAccountType} style={styles.changeButton}>
+                <Text style={[styles.changeButtonText, { color: dashboardConfig.themeColors.primary }]}>
+                  Change
+                </Text>
+              </Pressable>
+            </View>
+
             {/* Name Row */}
             <View style={styles.nameRow}>
               {/* First Name */}
@@ -426,6 +479,57 @@ const styles = StyleSheet.create({
   subtitle: {
     color: SEMANTIC.text.secondary,
     textAlign: 'center',
+  },
+  accountTypeBadge: {
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: 16,
+  },
+  accountTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  accountTypeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing[3],
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: spacing[2],
+  },
+  accountTypeCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  accountTypeIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountTypeInfo: {
+    gap: 2,
+  },
+  accountTypeLabel: {
+    fontSize: 12,
+    color: SEMANTIC.text.tertiary,
+  },
+  accountTypeName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  changeButton: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  changeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   form: {
     gap: spacing[4],

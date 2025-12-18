@@ -9,8 +9,9 @@ import type { AuthStackParamList } from './types';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { typography } from '@/theme/theme';
 
-// Import auth screens (placeholders for now)
+// Import auth screens
 import LoginScreen from '@/screens/auth/LoginScreen';
+import AccountTypeScreen from '@/screens/auth/AccountTypeScreen';
 import SignupScreen from '@/screens/auth/SignupScreen';
 import ForgotPasswordScreen from '@/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '@/screens/auth/ResetPasswordScreen';
@@ -48,6 +49,15 @@ export default function AuthNavigator() {
         options={{
           headerShown: false,
           title: 'Login',
+        }}
+      />
+
+      <Stack.Screen
+        name="AccountType"
+        component={AccountTypeScreen}
+        options={{
+          headerShown: false,
+          title: 'Choose Account Type',
         }}
       />
 
