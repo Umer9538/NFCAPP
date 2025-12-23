@@ -19,7 +19,7 @@ export interface BraceletInfo {
     location?: string;
   };
   qrCodeUrl?: string;
-  emergencyUrl: string;
+  emergencyUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,7 +42,9 @@ export interface BraceletAccessLog {
 }
 
 export interface QRCodeData {
-  profileUrl: string;
+  qrCode: string;
   qrCodeDataUrl: string;
+  profileUrl: string;
   emergencyId: string;
+  expiresAt?: string;
 }

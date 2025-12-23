@@ -24,7 +24,9 @@ interface Bracelet3DViewProps {
   autoRotate?: boolean;
 }
 
-const { width } = Dimensions.get('window');
+import { PixelRatio } from 'react-native';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export const Bracelet3DView: React.FC<Bracelet3DViewProps> = ({
   nfcId,
@@ -32,7 +34,7 @@ export const Bracelet3DView: React.FC<Bracelet3DViewProps> = ({
   autoRotate = true,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const rotationRef = useRef({ x: Math.PI / 3, y: -Math.PI / 8 });
+  const rotationRef = useRef({ x: Math.PI / 4, y: 0 });
   const lastPanRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const rendererRef = useRef<Renderer | null>(null);
@@ -63,36 +65,44 @@ export const Bracelet3DView: React.FC<Bracelet3DViewProps> = ({
 
   const onContextCreate = async (gl: ExpoWebGLRenderingContext) => {
     try {
+      const scale = 1; // PixelRatio.get() can cause issues
+      const glWidth = gl.drawingBufferWidth;
+      const glHeight = gl.drawingBufferHeight;
+
       // Setup renderer using Three.js WebGLRenderer directly
       const renderer = new THREE.WebGLRenderer({
         canvas: {
-          width: gl.drawingBufferWidth,
-          height: gl.drawingBufferHeight,
+          width: glWidth,
+          height: glHeight,
           style: {},
           addEventListener: () => {},
           removeEventListener: () => {},
-          clientHeight: gl.drawingBufferHeight,
-          clientWidth: gl.drawingBufferWidth,
+          clientHeight: glHeight / scale,
+          clientWidth: glWidth / scale,
           getContext: () => gl,
           toDataURL: () => '',
         } as any,
         context: gl,
       });
-      renderer.setSize(width, 400);
+
+      // Critical: Set pixel ratio to 1 and use actual buffer dimensions
+      renderer.setPixelRatio(1);
+      renderer.setSize(glWidth, glHeight, false);
       renderer.setClearColor(0xf5f5f5, 1);
       rendererRef.current = renderer as any;
 
       // Setup scene
       const scene = new THREE.Scene();
 
-      // Setup camera
+      // Setup camera - centered position with correct aspect ratio
+      const aspectRatio = glWidth / glHeight;
       const camera = new THREE.PerspectiveCamera(
-        45,
-        width / 400,
+        50,
+        aspectRatio,
         0.1,
         1000
       );
-      camera.position.set(0.5, 0.8, 5);
+      camera.position.set(0, 0, 4.5);
       camera.lookAt(0, 0, 0);
 
       // Add lighting
@@ -107,10 +117,17 @@ export const Bracelet3DView: React.FC<Bracelet3DViewProps> = ({
       backLight.position.set(-5, -5, -5);
       scene.add(backLight);
 
-      // Create bracelet
+      // Create bracelet - positioned at center
       const bracelet = createBracelet(status);
+      bracelet.position.set(0, 0, 0); // Ensure at origin
       scene.add(bracelet);
       braceletRef.current = bracelet;
+
+      // Log dimensions for debugging
+      console.log('[3D Bracelet] GL dimensions:', glWidth, 'x', glHeight);
+      console.log('[3D Bracelet] Pixel ratio:', PixelRatio.get());
+      console.log('[3D Bracelet] Screen width:', screenWidth);
+      console.log('[3D Bracelet] Aspect ratio:', aspectRatio);
 
       setIsLoading(false);
 
@@ -127,6 +144,9 @@ export const Bracelet3DView: React.FC<Bracelet3DViewProps> = ({
           braceletRef.current.rotation.x = rotationRef.current.x;
           braceletRef.current.rotation.y = rotationRef.current.y;
         }
+
+        // Set viewport before each render to ensure correct positioning
+        gl.viewport(0, 0, glWidth, glHeight);
 
         renderer.render(scene, camera);
         gl.endFrameEXP?.();

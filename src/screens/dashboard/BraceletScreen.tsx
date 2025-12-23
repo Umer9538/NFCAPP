@@ -12,6 +12,10 @@ import {
   Pressable,
   Alert,
   Linking,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,6 +75,20 @@ export default function BraceletScreen() {
     },
   });
 
+  // Link bracelet mutation
+  const linkMutation = useMutation({
+    mutationFn: (nfcId: string) => braceletApi.linkBracelet({ nfcId }),
+    onSuccess: () => {
+      success('Bracelet linked successfully!');
+      queryClient.invalidateQueries({ queryKey: ['bracelet'] });
+      setShowManualEntry(false);
+      setManualNfcId('');
+    },
+    onError: (err: any) => {
+      showError(err.message || 'Failed to link bracelet');
+    },
+  });
+
   const handleUnlink = () => {
     Alert.alert(
       'Unlink Bracelet',
@@ -114,6 +132,19 @@ export default function BraceletScreen() {
 
   const handleScanNFC = () => {
     navigation.navigate('NFCScanner');
+  };
+
+  const handleManualLink = () => {
+    const trimmedId = manualNfcId.trim();
+    if (!trimmedId) {
+      Alert.alert('Error', 'Please enter a valid NFC ID');
+      return;
+    }
+    if (trimmedId.length < 4) {
+      Alert.alert('Error', 'NFC ID must be at least 4 characters');
+      return;
+    }
+    linkMutation.mutate(trimmedId);
   };
 
   const handleViewQR = () => {
@@ -218,6 +249,69 @@ export default function BraceletScreen() {
           </Card>
         </View>
 
+        {/* Manual Entry Modal */}
+        <Modal
+          visible={showManualEntry}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowManualEntry(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setShowManualEntry(false)}
+            />
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Enter NFC ID Manually</Text>
+                <Pressable
+                  onPress={() => setShowManualEntry(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={SEMANTIC.text.secondary} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.modalDescription}>
+                Enter the NFC ID printed on your bracelet or packaging. It usually looks like "NFC-XXXX-XXXX".
+              </Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., NFC-MG-2024-001234"
+                placeholderTextColor={SEMANTIC.text.tertiary}
+                value={manualNfcId}
+                onChangeText={setManualNfcId}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+
+              <View style={styles.modalButtons}>
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    setShowManualEntry(false);
+                    setManualNfcId('');
+                  }}
+                  style={styles.modalButton}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onPress={handleManualLink}
+                  loading={linkMutation.isPending}
+                  style={styles.modalButton}
+                >
+                  Link Bracelet
+                </Button>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
         <Toast {...toastConfig} onDismiss={hideToast} />
       </ScrollView>
     );
@@ -235,7 +329,7 @@ export default function BraceletScreen() {
         <View style={styles.viewer3DContainer}>
           <Bracelet3DView
             nfcId={bracelet.nfcId}
-            status={bracelet.status}
+            status={bracelet.status || 'active'}
             autoRotate={true}
           />
         </View>
@@ -247,14 +341,14 @@ export default function BraceletScreen() {
           <View style={styles.statusInfo}>
             <View style={styles.statusBadgeContainer}>
               <Ionicons
-                name={getStatusIcon(bracelet.status)}
+                name={getStatusIcon(bracelet.status || 'active')}
                 size={24}
-                color={getStatusColor(bracelet.status)}
+                color={getStatusColor(bracelet.status || 'active')}
               />
               <Text
-                style={[styles.statusText, { color: getStatusColor(bracelet.status) }]}
+                style={[styles.statusText, { color: getStatusColor(bracelet.status || 'active') }]}
               >
-                {bracelet.status.toUpperCase()}
+                {(bracelet.status || 'active').toUpperCase()}
               </Text>
             </View>
             <Text style={styles.statusLabel}>Bracelet Status</Text>
@@ -263,7 +357,7 @@ export default function BraceletScreen() {
         </View>
 
         {/* Status Actions */}
-        {bracelet.status === 'lost' ? (
+        {(bracelet.status || 'active') === 'lost' ? (
           <Button
             variant="outline"
             fullWidth
@@ -274,7 +368,7 @@ export default function BraceletScreen() {
           </Button>
         ) : (
           <View style={styles.statusButtons}>
-            {bracelet.status === 'active' && (
+            {(bracelet.status || 'active') === 'active' && (
               <Button
                 variant="outline"
                 onPress={() => handleStatusChange('inactive')}
@@ -283,7 +377,7 @@ export default function BraceletScreen() {
                 Deactivate
               </Button>
             )}
-            {bracelet.status === 'inactive' && (
+            {(bracelet.status || 'active') === 'inactive' && (
               <Button
                 onPress={() => handleStatusChange('active')}
                 style={styles.halfButton}
@@ -614,5 +708,60 @@ const styles = StyleSheet.create({
   },
   unlinkButton: {
     borderColor: STATUS.error,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing[6],
+    paddingBottom: spacing[8],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[4],
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing[2],
+    marginRight: -spacing[2],
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: SEMANTIC.text.secondary,
+    lineHeight: 20,
+    marginBottom: spacing[4],
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: SEMANTIC.border.default,
+    borderRadius: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    fontSize: 16,
+    color: SEMANTIC.text.primary,
+    backgroundColor: SEMANTIC.background.secondary,
+    marginBottom: spacing[4],
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing[3],
+  },
+  modalButton: {
+    flex: 1,
   },
 });
