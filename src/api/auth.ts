@@ -40,86 +40,122 @@ async function getDb() {
 
 /**
  * Login with email and password
+ * Connects to website backend API
  */
 export async function login(data: LoginRequest): Promise<LoginResponse> {
   try {
-    const db = await getDb();
+    // Call backend API for authentication
+    const response = await api.post<{
+      success: boolean;
+      user: {
+        id: string;
+        email: string;
+        fullName?: string;
+        firstName?: string;
+        lastName?: string;
+        phoneNumber?: string;
+        emailVerified: boolean;
+        twoFactorEnabled: boolean;
+        accountType?: string;
+        organizationId?: string;
+        role?: string;
+        suspended?: boolean;
+        createdAt: string;
+        updatedAt: string;
+      };
+      token?: string;
+      accessToken?: string;
+      refreshToken?: string;
+    }>(API_CONFIG.ENDPOINTS.AUTH.LOGIN, {
+      email: data.email,
+      password: data.password,
+    });
 
-    // Check credentials against local SQLite database
-    const user = await db.getFirstAsync<any>(
-      'SELECT * FROM user WHERE email = ? AND password = ?',
-      [data.email, data.password]
-    );
+    const backendUser = response.user;
+    const token = response.token || response.accessToken || 'authenticated';
 
-    if (!user) {
-      throw new Error('Invalid email or password');
+    // Parse name - backend might return fullName or firstName/lastName
+    let firstName = backendUser.firstName || '';
+    let lastName = backendUser.lastName || '';
+    if (!firstName && backendUser.fullName) {
+      const nameParts = backendUser.fullName.split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
     }
 
-    // Store user data in AsyncStorage
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
-    await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'local-authenticated');
+    const user: User = {
+      id: backendUser.id,
+      email: backendUser.email,
+      firstName,
+      lastName,
+      phoneNumber: backendUser.phoneNumber,
+      emailVerified: backendUser.emailVerified,
+      twoFactorEnabled: backendUser.twoFactorEnabled,
+      accountType: (backendUser.accountType as AccountType) || 'individual',
+      organizationId: backendUser.organizationId,
+      role: backendUser.role,
+      suspended: backendUser.suspended,
+      createdAt: backendUser.createdAt,
+      updatedAt: backendUser.updatedAt,
+    };
 
-    // Split fullName into firstName and lastName
-    const nameParts = (user.fullName || '').split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    // Store tokens and user data
+    await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+    if (response.refreshToken) {
+      await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refreshToken);
+    }
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
     return {
-      token: 'local-authenticated',
-      refreshToken: 'local-refresh',
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName,
-        lastName,
-        phoneNumber: user.phoneNumber || undefined,
-        emailVerified: user.emailVerified === 1,
-        twoFactorEnabled: user.twoFactorEnabled === 1,
-        accountType: (user.accountType as AccountType) || 'individual',
-        organizationId: user.organizationId || undefined,
-        role: user.role || undefined,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      token,
+      refreshToken: response.refreshToken || '',
+      user,
     };
   } catch (error: any) {
     console.error('[Auth API] Login error:', error);
 
-    // Fallback to test credentials for development
-    if (data.email === 'test@medguard.com' && data.password === 'Test123!') {
-      const mockUser = {
-        id: 'test-user-1',
-        email: 'test@medguard.com',
-        fullName: 'John Doe',
-        phoneNumber: '+1 (555) 123-4567',
-        emailVerified: 1,
-        twoFactorEnabled: 0,
-        accountType: 'individual' as AccountType,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+    // If backend is unavailable, try local SQLite fallback for offline mode
+    if (error.message?.includes('Network') || error.code === 'NETWORK_ERROR') {
+      console.log('[Auth API] Backend unavailable, trying local database...');
+      try {
+        const db = await getDb();
+        const localUser = await db.getFirstAsync<any>(
+          'SELECT * FROM user WHERE email = ? AND password = ?',
+          [data.email, data.password]
+        );
 
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(mockUser));
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'test-authenticated');
+        if (localUser) {
+          const nameParts = (localUser.fullName || '').split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
 
-      return {
-        token: 'test-authenticated',
-        refreshToken: 'test-refresh',
-        user: {
-          id: mockUser.id,
-          email: mockUser.email,
-          firstName: 'John',
-          lastName: 'Doe',
-          phoneNumber: mockUser.phoneNumber,
-          emailVerified: true,
-          twoFactorEnabled: false,
-          accountType: 'individual',
-          organizationId: undefined,
-          role: undefined,
-          createdAt: mockUser.createdAt,
-          updatedAt: mockUser.updatedAt,
-        },
-      };
+          const user: User = {
+            id: localUser.id,
+            email: localUser.email,
+            firstName,
+            lastName,
+            phoneNumber: localUser.phoneNumber,
+            emailVerified: localUser.emailVerified === 1,
+            twoFactorEnabled: localUser.twoFactorEnabled === 1,
+            accountType: (localUser.accountType as AccountType) || 'individual',
+            organizationId: localUser.organizationId,
+            role: localUser.role,
+            createdAt: localUser.createdAt,
+            updatedAt: localUser.updatedAt,
+          };
+
+          await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'offline-authenticated');
+          await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+
+          return {
+            token: 'offline-authenticated',
+            refreshToken: '',
+            user,
+          };
+        }
+      } catch (dbError) {
+        console.error('[Auth API] Local DB fallback failed:', dbError);
+      }
     }
 
     throw new Error(error.message || 'Invalid email or password');
@@ -248,64 +284,98 @@ export async function disable2FA(password: string): Promise<{ message: string }>
 
 /**
  * Get current authenticated user
+ * Fetches from backend API, falls back to cached data
  */
 export async function getMe(): Promise<User> {
   try {
     // Check if user is authenticated
     const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
 
-    if (!token || !userData) {
+    if (!token) {
       throw new Error('Not authenticated');
     }
 
-    // Parse stored user data
-    const user = JSON.parse(userData);
-
-    // Import database to get latest user data
-    const db = await getDb();
-
-    // Get fresh user data from database
-    const dbUser = await db.getFirstAsync<any>(
-      'SELECT * FROM user WHERE id = ?',
-      [user.id]
-    );
-
-    if (!dbUser) {
-      throw new Error('User not found');
+    // Skip API call for offline tokens
+    if (token === 'offline-authenticated') {
+      const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
+      if (userData) {
+        return JSON.parse(userData);
+      }
+      throw new Error('Not authenticated');
     }
 
-    // Split fullName into firstName and lastName
-    const nameParts = (dbUser.fullName || '').split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    // Fetch fresh user data from backend
+    try {
+      const response = await api.get<{
+        user?: {
+          id: string;
+          email: string;
+          fullName?: string;
+          firstName?: string;
+          lastName?: string;
+          phoneNumber?: string;
+          emailVerified: boolean;
+          twoFactorEnabled: boolean;
+          accountType?: string;
+          organizationId?: string;
+          role?: string;
+          suspended?: boolean;
+          createdAt: string;
+          updatedAt: string;
+        };
+        id?: string;
+        email?: string;
+        fullName?: string;
+        firstName?: string;
+        lastName?: string;
+      }>(API_CONFIG.ENDPOINTS.AUTH.ME);
 
-    const currentUser: User = {
-      id: dbUser.id,
-      email: dbUser.email,
-      firstName,
-      lastName,
-      phoneNumber: dbUser.phoneNumber || undefined,
-      emailVerified: dbUser.emailVerified === 1,
-      twoFactorEnabled: dbUser.twoFactorEnabled === 1,
-      accountType: (dbUser.accountType as AccountType) || 'individual',
-      organizationId: dbUser.organizationId || undefined,
-      role: dbUser.role || undefined,
-      createdAt: dbUser.createdAt,
-      updatedAt: dbUser.updatedAt,
-    };
+      // Handle both { user: {...} } and direct user object responses
+      const backendUser = response.user || response;
 
-    // Update cached user data
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(currentUser));
+      // Parse name
+      let firstName = backendUser.firstName || '';
+      let lastName = backendUser.lastName || '';
+      if (!firstName && backendUser.fullName) {
+        const nameParts = backendUser.fullName.split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
 
-    return currentUser;
-  } catch (error: any) {
-    console.error('[Auth API] Get me error:', error);
-    // Return cached data if database fails
+      const currentUser: User = {
+        id: backendUser.id!,
+        email: backendUser.email!,
+        firstName,
+        lastName,
+        phoneNumber: (backendUser as any).phoneNumber,
+        emailVerified: (backendUser as any).emailVerified ?? true,
+        twoFactorEnabled: (backendUser as any).twoFactorEnabled ?? false,
+        accountType: ((backendUser as any).accountType as AccountType) || 'individual',
+        organizationId: (backendUser as any).organizationId,
+        role: (backendUser as any).role,
+        suspended: (backendUser as any).suspended,
+        createdAt: (backendUser as any).createdAt || new Date().toISOString(),
+        updatedAt: (backendUser as any).updatedAt || new Date().toISOString(),
+      };
+
+      // Update cached user data
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(currentUser));
+
+      return currentUser;
+    } catch (apiError: any) {
+      console.log('[Auth API] Backend getMe failed, using cached data:', apiError.message);
+      // Fall through to cached data
+    }
+
+    // Return cached data if API call fails
     const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
     if (userData) {
       return JSON.parse(userData);
     }
+
+    throw new Error('Not authenticated');
+  } catch (error: any) {
+    console.error('[Auth API] Get me error:', error);
     throw new Error(error.message || 'Failed to get user data');
   }
 }

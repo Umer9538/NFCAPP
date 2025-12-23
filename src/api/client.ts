@@ -11,9 +11,9 @@ import { API_CONFIG, STORAGE_KEYS } from '@/constants';
 
 /**
  * Create axios instance with base configuration
+ * Note: baseURL is set dynamically in interceptor to ensure latest config is used
  */
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
   timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
@@ -22,11 +22,14 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 /**
- * Request interceptor - Add JWT token to requests
+ * Request interceptor - Add JWT token and set baseURL dynamically
  */
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
+      // Always use the latest BASE_URL from config
+      config.baseURL = API_CONFIG.BASE_URL;
+
       // Get token from AsyncStorage
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
@@ -36,7 +39,7 @@ apiClient.interceptors.request.use(
 
       // Log request in development
       if (__DEV__) {
-        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
       }
 
       return config;

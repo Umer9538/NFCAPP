@@ -11,9 +11,10 @@ import { Platform } from 'react-native';
  * Get the correct API base URL based on environment
  */
 function getApiBaseUrl(): string {
-  // Use environment variable if set
+  // Use environment variable if set (priority)
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (envUrl && envUrl !== 'http://localhost:3000') {
+  if (envUrl) {
+    console.log('📡 Using API URL from env:', envUrl);
     return envUrl;
   }
 
@@ -26,21 +27,21 @@ function getApiBaseUrl(): string {
       const debuggerHost = manifest.debuggerHost;
       if (debuggerHost) {
         const host = debuggerHost.split(':')[0];
-        return `http://${host}:3000`;
+        return `http://${host}:3001`;
       }
     }
 
     // For Android emulator
     if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:3000';
+      return 'http://10.0.2.2:3001';
     }
 
     // For iOS simulator and default
-    return 'http://localhost:3000';
+    return 'http://localhost:3001';
   }
 
   // Production mode - use environment variable or default
-  return envUrl || 'https://api.medguard.com';
+  return 'https://api.medguard.com';
 }
 
 // Environment variables
@@ -64,14 +65,21 @@ export const API_CONFIG = {
     // Authentication
     AUTH: {
       LOGIN: '/api/auth/login',
+      REGISTER: '/api/auth/register',
       SIGNUP: '/api/auth/signup',
       LOGOUT: '/api/auth/logout',
       ME: '/api/auth/me',
       SESSION: '/api/auth/session',
       VERIFY_EMAIL: '/api/auth/verify-email',
+      RESEND_OTP: '/api/auth/resend-otp',
       ENABLE_2FA: '/api/auth/enable-2fa',
       VERIFY_2FA: '/api/auth/verify-2fa',
+      DISABLE_2FA: '/api/auth/disable-2fa',
       PROFILE_SETUP: '/api/auth/profile-setup',
+      FORGOT_PASSWORD: '/api/auth/forgot-password',
+      RESET_PASSWORD: '/api/auth/reset-password',
+      VERIFY_RESET_CODE: '/api/auth/verify-reset-code',
+      REFRESH: '/api/auth/refresh',
     },
 
     // User Profile

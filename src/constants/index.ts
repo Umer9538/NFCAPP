@@ -7,56 +7,8 @@
 export * from './colors';
 export * from './styles';
 
-// API Configuration
-export const API_CONFIG = {
-  BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000',
-  TIMEOUT: parseInt(process.env.API_TIMEOUT || '30000', 10),
-  ENDPOINTS: {
-    AUTH: {
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
-      LOGOUT: '/auth/logout',
-      REFRESH: '/auth/refresh',
-      VERIFY_EMAIL: '/auth/verify-email',
-      FORGOT_PASSWORD: '/auth/forgot-password',
-      RESET_PASSWORD: '/auth/reset-password',
-    },
-    USER: {
-      PROFILE: '/user/profile',
-      UPDATE: '/user/update',
-      DELETE: '/user/delete',
-      CHANGE_PASSWORD: '/user/change-password',
-    },
-    EMERGENCY_PROFILE: {
-      GET: '/emergency-profile',
-      GET_BY_ID: '/emergency-profile/:id',
-      CREATE: '/emergency-profile',
-      UPDATE: '/emergency-profile/:id',
-      DELETE: '/emergency-profile/:id',
-    },
-    MEDICAL: {
-      CONDITIONS: '/medical/conditions',
-      MEDICATIONS: '/medical/medications',
-      ALLERGIES: '/medical/allergies',
-    },
-    CONTACTS: {
-      LIST: '/emergency-contacts',
-      CREATE: '/emergency-contacts',
-      UPDATE: '/emergency-contacts/:id',
-      DELETE: '/emergency-contacts/:id',
-    },
-    NFC: {
-      REGISTER: '/nfc/register',
-      SCAN: '/nfc/scan/:tagId',
-      DEACTIVATE: '/nfc/deactivate/:tagId',
-      LIST: '/nfc/tags',
-    },
-    QR: {
-      GENERATE: '/qr/generate',
-      SCAN: '/qr/scan/:code',
-    },
-  },
-};
+// API Configuration - Re-export from config.ts for single source of truth
+export { API_CONFIG } from './config';
 
 // Blood Types
 export const BLOOD_TYPES = [
