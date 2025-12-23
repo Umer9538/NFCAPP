@@ -1,28 +1,43 @@
 /**
  * Root Navigator
  * Conditional rendering based on authentication and onboarding state
+ * Shows splash screen on app launch before navigating to appropriate flow
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RootStackParamList } from './types';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
-import { OnboardingNavigator } from './OnboardingNavigator';
-import { LoadingSpinner } from '@/components/ui';
+import { OnboardingScreen } from '@/screens/onboarding';
+import AppSplashScreen from '@/screens/SplashScreen';
 import { useAuthStore, selectIsAuthenticated, selectIsLoading } from '@/store/authStore';
 import { linking } from './linking';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const ONBOARDING_KEY = '@medguard_onboarding_completed';
 
+// Context for onboarding completion
+interface OnboardingContextType {
+  completeOnboarding: () => void;
+}
+
+const OnboardingContext = createContext<OnboardingContextType>({
+  completeOnboarding: () => {},
+});
+
+export const useOnboarding = () => useContext(OnboardingContext);
+
 export default function RootNavigator() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const isLoading = useAuthStore(selectIsLoading);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [splashComplete, setSplashComplete] = useState(false);
+  const [splashMinTimePassed, setSplashMinTimePassed] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Check onboarding status
   const checkOnboardingStatus = useCallback(async () => {
@@ -35,6 +50,7 @@ export default function RootNavigator() {
     const initialize = async () => {
       await checkAuth();
       await checkOnboardingStatus();
+      setIsInitialized(true);
     };
 
     initialize();
@@ -47,9 +63,35 @@ export default function RootNavigator() {
     }
   }, [isAuthenticated, checkOnboardingStatus]);
 
-  // Show loading screen while checking auth and onboarding
-  if (isLoading || onboardingComplete === null) {
-    return <LoadingSpinner visible text="Loading MedGuard..." />;
+  // Handle splash screen minimum time completion
+  const handleSplashReady = useCallback(() => {
+    setSplashMinTimePassed(true);
+  }, []);
+
+  // Complete splash when both minimum time passed AND initialization is done
+  useEffect(() => {
+    if (splashMinTimePassed && isInitialized && !isLoading && onboardingComplete !== null) {
+      setSplashComplete(true);
+    }
+  }, [splashMinTimePassed, isInitialized, isLoading, onboardingComplete]);
+
+  // Handle onboarding completion
+  const completeOnboarding = useCallback(() => {
+    setOnboardingComplete(true);
+  }, []);
+
+  // Show splash screen on initial launch
+  if (!splashComplete) {
+    return <AppSplashScreen onReady={handleSplashReady} />;
+  }
+
+  // Show onboarding for first-time users (before NavigationContainer to avoid nesting issues)
+  if (!onboardingComplete) {
+    return (
+      <OnboardingContext.Provider value={{ completeOnboarding }}>
+        <OnboardingScreen onComplete={completeOnboarding} />
+      </OnboardingContext.Provider>
+    );
   }
 
   return (
@@ -69,11 +111,8 @@ export default function RootNavigator() {
         {!isAuthenticated ? (
           // Unauthenticated user sees auth screens
           <Stack.Screen name="Auth" component={AuthNavigator} />
-        ) : !onboardingComplete ? (
-          // First-time authenticated user sees onboarding
-          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         ) : (
-          // Returning authenticated user sees app screens
+          // Authenticated user sees app screens
           <Stack.Screen name="Main" component={AppNavigator} />
         )}
       </Stack.Navigator>

@@ -1,12 +1,14 @@
 /**
  * Onboarding Navigator
  * Stack navigator for onboarding flow
+ * Uses single OnboardingScreen with swipeable slides for main flow
  */
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import type { OnboardingStackParamList } from './types';
 import {
+  OnboardingScreen,
   WelcomeScreen,
   FeaturesScreen,
   ProfileSetupScreen,
@@ -24,7 +26,9 @@ export function OnboardingNavigator() {
         presentation: 'card',
       }}
     >
-      <Stack.Screen name="OnboardingWelcome" component={WelcomeScreen} />
+      {/* Main onboarding flow with swipeable slides */}
+      <Stack.Screen name="OnboardingWelcome" component={OnboardingScreen} />
+      {/* Legacy screens kept for backwards compatibility */}
       <Stack.Screen name="OnboardingFeatures" component={FeaturesScreen} />
       <Stack.Screen name="OnboardingProfile" component={ProfileSetupScreen} />
       <Stack.Screen name="OnboardingComplete" component={CompleteScreen} />
