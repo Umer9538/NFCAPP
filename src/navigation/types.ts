@@ -47,6 +47,7 @@ export type OrganizationTabParamList = {
   Home: undefined;
   Employees: undefined;
   MedicalInfo: undefined;
+  IncidentReports: undefined;
   Profile: undefined;
   Settings: undefined;
 };
@@ -63,6 +64,7 @@ export type OrganizationStackParamList = {
   IncidentReports: undefined;
   CreateIncidentReport: undefined;
   IncidentReportDetails: { reportId: string };
+  EditIncidentReport: { reportId: string };
   OrganizationSettings: undefined;
 };
 
@@ -95,6 +97,7 @@ export type AppStackParamList = {
   NFCTagDetails: { tagId: string };
   QRCodeScanner: undefined;
   QRCodeGenerator: { profileId: string };
+  Bracelet: undefined;
 
   // Account & Settings
   AccountSettings: undefined;
@@ -129,6 +132,7 @@ export type AppStackParamList = {
   IncidentReports: undefined;
   CreateIncidentReport: undefined;
   IncidentReportDetails: { reportId: string };
+  EditIncidentReport: { reportId: string };
 };
 
 /**

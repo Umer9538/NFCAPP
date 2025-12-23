@@ -38,6 +38,7 @@ import NFCRegisterScreen from '@/screens/nfc/NFCRegisterScreen';
 import NFCTagDetailsScreen from '@/screens/nfc/NFCTagDetailsScreen';
 import QRScannerScreen from '@/screens/dashboard/QRScannerScreen';
 import { QRCodeScreen } from '@/screens/dashboard/QRCodeScreen';
+import BraceletScreen from '@/screens/dashboard/BraceletScreen';
 
 // Account & Settings
 import AccountSettingsScreen from '@/screens/settings/AccountSettingsScreen';
@@ -70,6 +71,9 @@ import {
   EmployeeDetailsScreen,
   OrganizationMedicalInfoScreen,
   IncidentReportsScreen,
+  CreateIncidentReportScreen,
+  IncidentReportDetailsScreen,
+  EditIncidentReportScreen,
 } from '@/screens/organization';
 
 const Stack = createStackNavigator<AppStackParamList>();
@@ -253,6 +257,14 @@ export default function AppNavigator() {
         component={NFCTagDetailsScreen}
         options={{
           title: 'NFC Tag Details',
+        }}
+      />
+
+      <Stack.Screen
+        name="Bracelet"
+        component={BraceletScreen}
+        options={{
+          title: 'Manage Bracelet',
         }}
       />
 
@@ -442,6 +454,30 @@ export default function AppNavigator() {
       <Stack.Screen
         name="IncidentReports"
         component={IncidentReportsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="CreateIncidentReport"
+        component={CreateIncidentReportScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="IncidentReportDetails"
+        component={IncidentReportDetailsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="EditIncidentReport"
+        component={EditIncidentReportScreen}
         options={{
           headerShown: false,
         }}

@@ -16,6 +16,7 @@ import {
   HardHat,
   GraduationCap,
   User,
+  AlertTriangle,
 } from 'lucide-react-native';
 
 import type { OrganizationTabParamList } from './types';
@@ -25,10 +26,14 @@ import { useAuthStore } from '@/store/authStore';
 import { getDashboardConfig, isAdmin } from '@/config/dashboardConfig';
 
 // Import screens
-import HomeScreen from '@/screens/dashboard/HomeScreen';
 import ProfileScreen from '@/screens/dashboard/ProfileScreen';
 import SettingsScreen from '@/screens/settings/SettingsScreen';
-import { EmployeesScreen, OrganizationMedicalInfoScreen } from '@/screens/organization';
+import {
+  OrganizationDashboardScreen,
+  EmployeesScreen,
+  OrganizationMedicalInfoScreen,
+  IncidentReportsScreen,
+} from '@/screens/organization';
 
 const Tab = createBottomTabNavigator<OrganizationTabParamList>();
 
@@ -66,6 +71,8 @@ export default function OrganizationNavigator() {
               return getEmployeesIcon(focused, color, size);
             case 'MedicalInfo':
               return <FileHeart size={size} color={color} />;
+            case 'IncidentReports':
+              return <AlertTriangle size={size} color={color} />;
             case 'Profile':
               return <User size={size} color={color} />;
             case 'Settings':
@@ -112,9 +119,9 @@ export default function OrganizationNavigator() {
       {/* Home - Always visible */}
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={OrganizationDashboardScreen}
         options={{
-          title: 'Dashboard',
+          headerShown: false,
           tabBarLabel: 'Home',
         }}
       />
@@ -139,6 +146,18 @@ export default function OrganizationNavigator() {
           options={{
             headerShown: false,
             tabBarLabel: 'Medical',
+          }}
+        />
+      )}
+
+      {/* Incident Reports - Admin only */}
+      {isUserAdmin && (
+        <Tab.Screen
+          name="IncidentReports"
+          component={IncidentReportsScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Incidents',
           }}
         />
       )}
