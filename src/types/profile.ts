@@ -29,24 +29,34 @@ export interface Medication {
   notes?: string;
 }
 
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  email?: string | null;
+  isPrimary: boolean;
+}
+
 export interface MedicalProfile {
   id: string;
   userId: string;
 
   // Basic Information
-  bloodType?: BloodType;
-  height?: number; // in cm
-  weight?: number; // in kg
-  dateOfBirth?: string;
-  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  bloodType?: BloodType | string | null;
+  height?: number | null; // in cm
+  weight?: number | null; // in kg
+  dateOfBirth?: string | null;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say' | null;
 
   // Medical Data
   conditions: MedicalCondition[];
   allergies: Allergy[];
   medications: Medication[];
+  emergencyContacts: EmergencyContact[];
 
   // Emergency Information
-  emergencyNotes?: string;
+  emergencyNotes?: string | null;
 
   // Medical Directives
   isOrganDonor: boolean;
