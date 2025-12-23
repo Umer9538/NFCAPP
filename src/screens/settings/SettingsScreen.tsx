@@ -15,10 +15,11 @@ import {
   Linking,
   Switch,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppScreenNavigationProp } from '@/navigation/types';
 
 import { Card, LoadingSpinner, Toast, useToast, Avatar } from '@/components/ui';
@@ -114,6 +115,29 @@ export default function SettingsScreen() {
 
   const handleDownloadData = async () => {
     Alert.alert('Download Data', 'This feature will be implemented soon.');
+  };
+
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will show the onboarding screens again on next app launch. The app will restart.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('@medguard_onboarding_completed');
+              await logout();
+              success('Onboarding reset. Please restart the app.');
+            } catch (err) {
+              showError('Failed to reset onboarding');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const appVersion = Application.nativeApplicationVersion || '1.0.0';
@@ -478,6 +502,29 @@ export default function SettingsScreen() {
             </Pressable>
           </Card>
         </View>
+
+        {/* Developer Section */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Developer Options</Text>
+
+            <Card variant="outline" padding="none">
+              {/* Reset Onboarding */}
+              <Pressable style={styles.settingItem} onPress={handleResetOnboarding}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="refresh-outline" size={20} color="#f59e0b" />
+                  <View style={styles.settingText}>
+                    <Text style={styles.settingLabel}>Reset Onboarding</Text>
+                    <Text style={styles.settingDescription}>
+                      Show onboarding screens again
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
+              </Pressable>
+            </Card>
+          </View>
+        )}
       </ScrollView>
 
       <Toast {...toastConfig} onDismiss={hideToast} />
