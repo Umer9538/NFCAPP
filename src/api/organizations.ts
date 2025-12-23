@@ -95,22 +95,60 @@ export interface EmployeeMedicalInfo {
 /**
  * Incident Report Model
  */
+export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type IncidentStatus = 'open' | 'investigating' | 'resolved' | 'closed';
+
 export interface IncidentReport {
   id: string;
   title: string;
   description: string;
-  type: 'injury' | 'illness' | 'near_miss' | 'hazard' | 'other';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'reported' | 'investigating' | 'resolved' | 'closed';
+  employeeId: string;
+  employeeName: string;
+  employeeEmail?: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  incidentDate: string;
+  location?: string;
   reportedById: string;
   reportedByName: string;
-  affectedEmployeeId?: string;
-  affectedEmployeeName?: string;
-  location?: string;
-  dateOccurred: string;
-  dateReported: string;
+  createdAt: string;
+  updatedAt?: string;
   resolvedAt?: string;
+  resolvedById?: string;
+  resolvedByName?: string;
   notes?: string;
+}
+
+export interface CreateIncidentReportRequest {
+  employeeId: string;
+  title: string;
+  description: string;
+  incidentDate: string;
+  location?: string;
+  severity: IncidentSeverity;
+}
+
+export interface UpdateIncidentReportRequest {
+  title?: string;
+  description?: string;
+  severity?: IncidentSeverity;
+  status?: IncidentStatus;
+  location?: string;
+  notes?: string;
+}
+
+export interface IncidentReportStats {
+  total: number;
+  open: number;
+  investigating: number;
+  resolved: number;
+  closed: number;
+  bySeverity: {
+    low: number;
+    medium: number;
+    high: number;
+    critical: number;
+  };
 }
 
 /**
@@ -157,19 +195,6 @@ export interface UpdateEmployeeRequest {
 }
 
 /**
- * Create Incident Report Request
- */
-export interface CreateIncidentRequest {
-  title: string;
-  description: string;
-  type: IncidentReport['type'];
-  severity: IncidentReport['severity'];
-  affectedEmployeeId?: string;
-  location?: string;
-  dateOccurred: string;
-}
-
-/**
  * API Response Types
  */
 export interface PaginatedResponse<T> {
@@ -185,7 +210,7 @@ export interface PaginatedResponse<T> {
  */
 export async function createMyOrg(data: CreateOrgRequest): Promise<Organization> {
   try {
-    const response = await api.post<Organization>('/organizations/create-my-org', data);
+    const response = await api.post<Organization>('/api/organizations/create-my-org', data);
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Create org error:', error);
@@ -216,7 +241,7 @@ export async function createMyOrg(data: CreateOrgRequest): Promise<Organization>
  */
 export async function getMyOrg(): Promise<Organization | null> {
   try {
-    const response = await api.get<Organization>('/organizations/my-org');
+    const response = await api.get<Organization>('/api/organizations/my-org');
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Get my org error:', error);
@@ -249,7 +274,7 @@ export async function getMyOrg(): Promise<Organization | null> {
  */
 export async function updateMyOrg(data: UpdateOrgRequest): Promise<Organization> {
   try {
-    const response = await api.put<Organization>('/organizations/my-org', data);
+    const response = await api.put<Organization>('/api/organizations/my-org', data);
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Update org error:', error);
@@ -292,68 +317,75 @@ export async function getEmployees(
       params.append('search', search);
     }
 
-    const response = await api.get<PaginatedResponse<Employee>>(
-      `/organizations/employees?${params.toString()}`
+    console.log('[Organizations API] Fetching employees...');
+    const response = await api.get<any>(
+      `/api/organizations/employees?${params.toString()}`
     );
-    return response;
-  } catch (error: any) {
-    console.error('[Organizations API] Get employees error:', error);
+    console.log('[Organizations API] Employees response:', JSON.stringify(response, null, 2));
 
-    // Demo mode fallback
-    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
-      const mockEmployees: Employee[] = [
-        {
-          id: 'emp-1',
-          fullName: 'John Smith',
-          email: 'john.smith@demo.com',
-          phoneNumber: '+1 555-0101',
-          department: 'Engineering',
-          position: 'Software Developer',
-          profileComplete: true,
-          emailVerified: true,
-          status: 'active',
-          suspended: false,
-          joinedAt: '2024-01-15T00:00:00Z',
-          createdAt: '2024-01-15T00:00:00Z',
-        },
-        {
-          id: 'emp-2',
-          fullName: 'Sarah Johnson',
-          email: 'sarah.johnson@demo.com',
-          phoneNumber: '+1 555-0102',
-          department: 'Marketing',
-          position: 'Marketing Manager',
-          profileComplete: true,
-          emailVerified: true,
-          status: 'active',
-          suspended: false,
-          joinedAt: '2024-02-01T00:00:00Z',
-          createdAt: '2024-02-01T00:00:00Z',
-        },
-        {
-          id: 'emp-3',
-          fullName: 'Mike Williams',
-          email: 'mike.williams@demo.com',
-          department: 'Operations',
-          profileComplete: false,
-          emailVerified: false,
-          status: 'pending',
-          suspended: false,
-          createdAt: '2024-03-10T00:00:00Z',
-        },
-      ];
+    // Handle different response formats from backend
+    // Backend may return { employees: [...] } or { data: [...] } or [...]
+    let employees: Employee[] = [];
+    let total = 0;
 
-      return {
-        data: mockEmployees,
-        total: mockEmployees.length,
-        page: 1,
-        pageSize: 20,
-        totalPages: 1,
-      };
+    if (Array.isArray(response)) {
+      // Response is directly an array
+      employees = response.map(transformEmployee);
+      total = employees.length;
+    } else if (response?.employees) {
+      // Response has employees property
+      employees = (response.employees || []).map(transformEmployee);
+      total = response.total || response.pagination?.total || employees.length;
+    } else if (response?.data) {
+      // Response has data property
+      employees = (response.data || []).map(transformEmployee);
+      total = response.total || response.pagination?.total || employees.length;
+    } else if (response?.users) {
+      // Response has users property (some backends use this)
+      employees = (response.users || []).map(transformEmployee);
+      total = response.total || response.pagination?.total || employees.length;
     }
 
-    throw new Error(error.message || 'Failed to get employees');
+    return {
+      data: employees,
+      total,
+      page: response?.page || response?.pagination?.page || page,
+      pageSize: response?.pageSize || response?.pagination?.pageSize || pageSize,
+      totalPages: response?.totalPages || response?.pagination?.totalPages || Math.ceil(total / pageSize),
+    };
+  } catch (error: any) {
+    console.error('[Organizations API] Get employees error:', error);
+    console.error('[Organizations API] Error details:', error.response?.data || error.message);
+
+    // Return empty on error instead of mock data
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    };
   }
+}
+
+/**
+ * Transform backend employee data to app format
+ */
+function transformEmployee(emp: any): Employee {
+  return {
+    id: emp.id || emp._id,
+    fullName: emp.fullName || emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+    email: emp.email,
+    phoneNumber: emp.phoneNumber || emp.phone,
+    department: emp.department,
+    position: emp.position || emp.role || emp.jobTitle,
+    profileComplete: emp.profileComplete ?? emp.isProfileComplete ?? false,
+    emailVerified: emp.emailVerified ?? emp.isEmailVerified ?? false,
+    status: emp.status || (emp.isActive ? 'active' : 'pending'),
+    suspended: emp.suspended ?? emp.isSuspended ?? false,
+    joinedAt: emp.joinedAt || emp.createdAt,
+    createdAt: emp.createdAt,
+  };
 }
 
 /**
@@ -361,7 +393,7 @@ export async function getEmployees(
  */
 export async function addEmployee(data: AddEmployeeRequest): Promise<Employee> {
   try {
-    const response = await api.post<Employee>('/organizations/employees', data);
+    const response = await api.post<Employee>('/api/organizations/employees', data);
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Add employee error:', error);
@@ -394,7 +426,7 @@ export async function addEmployee(data: AddEmployeeRequest): Promise<Employee> {
 export async function removeEmployee(employeeId: string): Promise<{ success: boolean }> {
   try {
     const response = await api.delete<{ success: boolean }>(
-      `/organizations/employees/${employeeId}`
+      `/api/organizations/employees/${employeeId}`
     );
     return response;
   } catch (error: any) {
@@ -414,7 +446,7 @@ export async function removeEmployee(employeeId: string): Promise<{ success: boo
  */
 export async function updateEmployee(data: UpdateEmployeeRequest): Promise<Employee> {
   try {
-    const response = await api.put<Employee>('/organizations/employees', data);
+    const response = await api.put<Employee>('/api/organizations/employees', data);
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Update employee error:', error);
@@ -445,7 +477,7 @@ export async function updateEmployee(data: UpdateEmployeeRequest): Promise<Emplo
 export async function deleteEmployee(employeeId: string): Promise<{ success: boolean }> {
   try {
     const response = await api.delete<{ success: boolean }>(
-      '/organizations/employees',
+      '/api/organizations/employees',
       { data: { employeeId } }
     );
     return response;
@@ -470,7 +502,7 @@ export async function suspendEmployee(
 ): Promise<{ success: boolean }> {
   try {
     const response = await api.patch<{ success: boolean }>(
-      '/organizations/employees',
+      '/api/organizations/employees',
       { employeeId, action: suspend ? 'suspend' : 'unsuspend' }
     );
     return response;
@@ -492,7 +524,7 @@ export async function suspendEmployee(
 export async function resendEmployeeInvite(employeeId: string): Promise<{ success: boolean }> {
   try {
     const response = await api.post<{ success: boolean }>(
-      `/organizations/employees/${employeeId}/resend-invite`
+      `/api/organizations/employees/${employeeId}/resend-invite`
     );
     return response;
   } catch (error: any) {
@@ -525,7 +557,7 @@ export async function getMedicalInfo(
     }
 
     const response = await api.get<PaginatedResponse<EmployeeMedicalInfo>>(
-      `/organizations/medical-info?${params.toString()}`
+      `/api/organizations/medical-info?${params.toString()}`
     );
     return response;
   } catch (error: any) {
@@ -595,69 +627,143 @@ export async function getMedicalInfo(
 export async function getIncidentReports(
   page: number = 1,
   pageSize: number = 20,
-  status?: IncidentReport['status']
+  filters?: {
+    status?: IncidentStatus;
+    severity?: IncidentSeverity;
+    search?: string;
+  }
 ): Promise<PaginatedResponse<IncidentReport>> {
   try {
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: pageSize.toString(),
     });
-    if (status) {
-      params.append('status', status);
+    if (filters?.status) {
+      params.append('status', filters.status);
+    }
+    if (filters?.severity) {
+      params.append('severity', filters.severity);
+    }
+    if (filters?.search) {
+      params.append('search', filters.search);
     }
 
-    const response = await api.get<PaginatedResponse<IncidentReport>>(
-      `/organizations/incident-reports?${params.toString()}`
+    console.log('[Organizations API] Fetching incident reports...');
+    const response = await api.get<any>(
+      `/api/organizations/incident-reports?${params.toString()}`
     );
-    return response;
+    console.log('[Organizations API] Incident reports response:', JSON.stringify(response, null, 2));
+
+    // Handle different response formats
+    let reports: IncidentReport[] = [];
+    let total = 0;
+
+    if (Array.isArray(response)) {
+      reports = response.map(transformIncidentReport);
+      total = reports.length;
+    } else if (response?.reports) {
+      reports = (response.reports || []).map(transformIncidentReport);
+      total = response.total || reports.length;
+    } else if (response?.data) {
+      reports = (response.data || []).map(transformIncidentReport);
+      total = response.total || reports.length;
+    } else if (response?.incidentReports) {
+      reports = (response.incidentReports || []).map(transformIncidentReport);
+      total = response.total || reports.length;
+    }
+
+    return {
+      data: reports,
+      total,
+      page: response?.page || page,
+      pageSize: response?.pageSize || pageSize,
+      totalPages: response?.totalPages || Math.ceil(total / pageSize),
+    };
   } catch (error: any) {
     console.error('[Organizations API] Get incident reports error:', error);
+    console.error('[Organizations API] Error details:', error.response?.data || error.message);
 
-    // Demo mode fallback
-    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
-      const mockReports: IncidentReport[] = [
-        {
-          id: 'inc-1',
-          title: 'Minor workplace injury',
-          description: 'Employee slipped on wet floor in break room',
-          type: 'injury',
-          severity: 'low',
-          status: 'resolved',
-          reportedById: 'emp-1',
-          reportedByName: 'John Smith',
-          affectedEmployeeId: 'emp-1',
-          affectedEmployeeName: 'John Smith',
-          location: 'Break Room - 2nd Floor',
-          dateOccurred: '2024-03-10T14:30:00Z',
-          dateReported: '2024-03-10T15:00:00Z',
-          resolvedAt: '2024-03-11T10:00:00Z',
-          notes: 'Wet floor sign was not displayed. Maintenance notified.',
-        },
-        {
-          id: 'inc-2',
-          title: 'Near miss - falling object',
-          description: 'Unsecured equipment nearly fell from shelf',
-          type: 'near_miss',
-          severity: 'medium',
-          status: 'investigating',
-          reportedById: 'emp-2',
-          reportedByName: 'Sarah Johnson',
-          location: 'Warehouse Section B',
-          dateOccurred: '2024-03-12T09:15:00Z',
-          dateReported: '2024-03-12T09:30:00Z',
-        },
-      ];
+    // Return empty on error
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    };
+  }
+}
 
-      return {
-        data: mockReports,
-        total: mockReports.length,
-        page: 1,
-        pageSize: 20,
-        totalPages: 1,
-      };
-    }
+/**
+ * Transform backend incident report data to app format
+ */
+function transformIncidentReport(report: any): IncidentReport {
+  return {
+    id: report.id || report._id,
+    title: report.title,
+    description: report.description,
+    employeeId: report.employeeId || report.employee_id || report.affectedEmployeeId,
+    employeeName: report.employeeName || report.employee_name || report.affectedEmployeeName || 'Unknown',
+    employeeEmail: report.employeeEmail || report.employee_email,
+    severity: report.severity || 'low',
+    status: report.status || 'open',
+    incidentDate: report.incidentDate || report.incident_date || report.dateOccurred || report.createdAt,
+    location: report.location,
+    reportedById: report.reportedById || report.reported_by_id || report.reporterId,
+    reportedByName: report.reportedByName || report.reported_by_name || report.reporterName || 'Unknown',
+    createdAt: report.createdAt || report.created_at || report.dateReported,
+    updatedAt: report.updatedAt || report.updated_at,
+    resolvedAt: report.resolvedAt || report.resolved_at,
+    resolvedById: report.resolvedById || report.resolved_by_id,
+    resolvedByName: report.resolvedByName || report.resolved_by_name,
+    notes: report.notes,
+  };
+}
 
-    throw new Error(error.message || 'Failed to get incident reports');
+/**
+ * Get single incident report by ID
+ */
+export async function getIncidentReport(reportId: string): Promise<IncidentReport> {
+  try {
+    const response = await api.get<any>(`/api/organizations/incident-reports/${reportId}`);
+    const report = response?.report || response?.incidentReport || response;
+    return transformIncidentReport(report);
+  } catch (error: any) {
+    console.error('[Organizations API] Get incident report error:', error);
+    throw new Error(error.message || 'Failed to get incident report');
+  }
+}
+
+/**
+ * Get incident report statistics
+ */
+export async function getIncidentReportStats(): Promise<IncidentReportStats> {
+  try {
+    const response = await api.get<any>('/api/organizations/incident-reports/stats');
+    return {
+      total: response.total || 0,
+      open: response.open || response.byStatus?.open || 0,
+      investigating: response.investigating || response.byStatus?.investigating || 0,
+      resolved: response.resolved || response.byStatus?.resolved || 0,
+      closed: response.closed || response.byStatus?.closed || 0,
+      bySeverity: {
+        low: response.bySeverity?.low || 0,
+        medium: response.bySeverity?.medium || 0,
+        high: response.bySeverity?.high || 0,
+        critical: response.bySeverity?.critical || 0,
+      },
+    };
+  } catch (error: any) {
+    console.error('[Organizations API] Get incident stats error:', error);
+    // Return empty stats on error
+    return {
+      total: 0,
+      open: 0,
+      investigating: 0,
+      resolved: 0,
+      closed: 0,
+      bySeverity: { low: 0, medium: 0, high: 0, critical: 0 },
+    };
   }
 }
 
@@ -665,31 +771,38 @@ export async function getIncidentReports(
  * Create incident report
  */
 export async function createIncidentReport(
-  data: CreateIncidentRequest
+  data: CreateIncidentReportRequest
 ): Promise<IncidentReport> {
   try {
-    const response = await api.post<IncidentReport>(
-      '/organizations/incident-reports',
+    const response = await api.post<any>(
+      '/api/organizations/incident-reports',
       data
     );
-    return response;
+    const report = response?.report || response?.incidentReport || response;
+    return transformIncidentReport(report);
   } catch (error: any) {
     console.error('[Organizations API] Create incident report error:', error);
-
-    // Demo mode fallback
-    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
-      const mockReport: IncidentReport = {
-        id: `inc-${Date.now()}`,
-        ...data,
-        status: 'reported',
-        reportedById: 'current-user',
-        reportedByName: 'Current User',
-        dateReported: new Date().toISOString(),
-      };
-      return mockReport;
-    }
-
     throw new Error(error.message || 'Failed to create incident report');
+  }
+}
+
+/**
+ * Update incident report
+ */
+export async function updateIncidentReport(
+  reportId: string,
+  data: UpdateIncidentReportRequest
+): Promise<IncidentReport> {
+  try {
+    const response = await api.put<any>(
+      `/api/organizations/incident-reports/${reportId}`,
+      data
+    );
+    const report = response?.report || response?.incidentReport || response;
+    return transformIncidentReport(report);
+  } catch (error: any) {
+    console.error('[Organizations API] Update incident report error:', error);
+    throw new Error(error.message || 'Failed to update incident report');
   }
 }
 
@@ -698,37 +811,34 @@ export async function createIncidentReport(
  */
 export async function updateIncidentStatus(
   reportId: string,
-  status: IncidentReport['status'],
+  status: IncidentStatus,
   notes?: string
 ): Promise<IncidentReport> {
   try {
-    const response = await api.put<IncidentReport>(
-      `/organizations/incident-reports/${reportId}/status`,
+    const response = await api.patch<any>(
+      `/api/organizations/incident-reports/${reportId}/status`,
       { status, notes }
+    );
+    const report = response?.report || response?.incidentReport || response;
+    return transformIncidentReport(report);
+  } catch (error: any) {
+    console.error('[Organizations API] Update incident status error:', error);
+    throw new Error(error.message || 'Failed to update incident status');
+  }
+}
+
+/**
+ * Delete incident report
+ */
+export async function deleteIncidentReport(reportId: string): Promise<{ success: boolean }> {
+  try {
+    const response = await api.delete<{ success: boolean }>(
+      `/api/organizations/incident-reports/${reportId}`
     );
     return response;
   } catch (error: any) {
-    console.error('[Organizations API] Update incident status error:', error);
-
-    // Demo mode fallback
-    if (error.message?.includes('Network') || error.message?.includes('fetch')) {
-      return {
-        id: reportId,
-        title: 'Updated Report',
-        description: '',
-        type: 'other',
-        severity: 'low',
-        status,
-        reportedById: 'current-user',
-        reportedByName: 'Current User',
-        dateOccurred: new Date().toISOString(),
-        dateReported: new Date().toISOString(),
-        notes,
-        resolvedAt: status === 'resolved' || status === 'closed' ? new Date().toISOString() : undefined,
-      };
-    }
-
-    throw new Error(error.message || 'Failed to update incident status');
+    console.error('[Organizations API] Delete incident report error:', error);
+    throw new Error(error.message || 'Failed to delete incident report');
   }
 }
 
@@ -751,7 +861,7 @@ export async function getOrgStats(): Promise<{
       profileCompletionRate: number;
       incidentReportsThisMonth: number;
       openIncidents: number;
-    }>('/organizations/stats');
+    }>('/api/organizations/stats');
     return response;
   } catch (error: any) {
     console.error('[Organizations API] Get org stats error:', error);
@@ -788,7 +898,11 @@ export const organizationsApi = {
   resendEmployeeInvite,
   getMedicalInfo,
   getIncidentReports,
+  getIncidentReport,
+  getIncidentReportStats,
   createIncidentReport,
+  updateIncidentReport,
   updateIncidentStatus,
+  deleteIncidentReport,
   getOrgStats,
 };
