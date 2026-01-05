@@ -166,7 +166,12 @@ export default function HomeScreen() {
               </Text>
               <View style={styles.accountBadge}>
                 <User size={12} color="#fff" />
-                <Text style={styles.accountBadgeText}>Individual Account</Text>
+                <Text style={styles.accountBadgeText} numberOfLines={1}>
+                  {user?.accountType === 'corporate' ? 'Corporate Account' :
+                   user?.accountType === 'construction' ? 'Construction Account' :
+                   user?.accountType === 'education' ? 'Education Account' :
+                   'Individual Account'}
+                </Text>
               </View>
             </View>
           </View>
@@ -233,10 +238,10 @@ export default function HomeScreen() {
               <Eye size={22} color="#ef4444" />
             </View>
             <View style={styles.statContent}>
-              <Text style={styles.statLabel}>Accesses</Text>
+              <Text style={styles.statLabel} numberOfLines={1}>Accesses</Text>
               <Text style={styles.statValue}>{stats?.recentAccesses?.count || 0}</Text>
             </View>
-            <Text style={styles.statSubLabel}>This month</Text>
+            <Text style={styles.statSubLabel} numberOfLines={1}>This month</Text>
           </Pressable>
 
           {/* Subscription Card */}
