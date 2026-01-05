@@ -13,3 +13,6 @@ export { default as IncidentReportsScreen } from './IncidentReportsScreen';
 export { default as CreateIncidentReportScreen } from './CreateIncidentReportScreen';
 export { default as IncidentReportDetailsScreen } from './IncidentReportDetailsScreen';
 export { default as EditIncidentReportScreen } from './EditIncidentReportScreen';
+export { default as OSHAComplianceScreen } from './OSHAComplianceScreen';
+export { default as TrainingRecordsScreen } from './TrainingRecordsScreen';
+export { default as EmergencyNotificationsScreen } from './EmergencyNotificationsScreen';
