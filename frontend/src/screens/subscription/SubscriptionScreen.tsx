@@ -14,6 +14,8 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -87,6 +89,8 @@ const PLANS: Plan[] = [
 ];
 
 export default function SubscriptionScreen() {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -251,12 +255,37 @@ export default function SubscriptionScreen() {
   };
 
   if (isLoading) {
-    return <LoadingSpinner visible text="Loading subscription..." />;
+    return (
+      <View style={styles.container}>
+        <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Subscription</Text>
+            <View style={styles.backButton} />
+          </View>
+        </View>
+        <LoadingSpinner visible text="Loading subscription..." />
+      </View>
+    );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Current Subscription Card */}
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Subscription</Text>
+          <View style={styles.backButton} />
+        </View>
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Current Subscription Card */}
       <Card variant="elevated" padding="lg" style={styles.currentPlanCard}>
         <View style={styles.currentPlanHeader}>
           <View>
@@ -363,7 +392,7 @@ export default function SubscriptionScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
 
-          <Card variant="outline" padding="md">
+          <Card variant="outlined" padding="md">
             <View style={styles.paymentMethodRow}>
               <View style={styles.paymentMethodInfo}>
                 <Ionicons name="card" size={24} color={PRIMARY[600]} />
@@ -394,7 +423,7 @@ export default function SubscriptionScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Billing History</Text>
 
-          <Card variant="outline" padding="none">
+          <Card variant="outlined" padding="none">
             {invoices.map((invoice, index) => (
               <InvoiceRow
                 key={invoice.id}
@@ -437,7 +466,8 @@ export default function SubscriptionScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -452,13 +482,9 @@ interface PlanCardProps {
 function PlanCard({ plan, isCurrentPlan, onSelect, isLoading }: PlanCardProps) {
   return (
     <Card
-      variant={plan.popular ? 'elevated' : 'outline'}
+      variant={plan.popular ? 'elevated' : 'outlined'}
       padding="lg"
-      style={[
-        styles.planCard,
-        plan.popular && styles.popularPlanCard,
-        isCurrentPlan && styles.currentPlanCardBorder,
-      ]}
+      style={styles.planCard}
     >
       {plan.popular && (
         <View style={styles.popularBadge}>
@@ -616,6 +642,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: GRAY[50],
+  },
+  headerWrapper: {
+    backgroundColor: SEMANTIC.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.default,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    minHeight: 56,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: spacing[4],
