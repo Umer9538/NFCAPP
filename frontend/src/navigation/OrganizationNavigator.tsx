@@ -22,6 +22,8 @@ import {
   Shield,
   BookOpen,
   Bell,
+  UserCog,
+  Users2,
 } from 'lucide-react-native';
 
 import type { OrganizationTabParamList } from './types';
@@ -40,6 +42,8 @@ import {
   EmployeesScreen,
   WorkersScreen,
   StudentsScreen,
+  TeachersScreen,
+  ParentsScreen,
   OrganizationMedicalInfoScreen,
   IncidentReportsScreen,
   OSHAComplianceScreen,
@@ -104,6 +108,10 @@ export default function OrganizationNavigator() {
               return <BookOpen size={size} color={color} />;
             case 'EmergencyNotifications':
               return <Bell size={size} color={color} />;
+            case 'Teachers':
+              return <UserCog size={size} color={color} />;
+            case 'Parents':
+              return <Users2 size={size} color={color} />;
             case 'Location':
               return <MapPin size={size} color={color} />;
             case 'Profile':
@@ -236,6 +244,30 @@ export default function OrganizationNavigator() {
           options={{
             headerShown: false,
             tabBarLabel: 'Alerts',
+          }}
+        />
+      )}
+
+      {/* Teachers - Education Admin only */}
+      {isUserAdmin && accountType === 'education' && (
+        <Tab.Screen
+          name="Teachers"
+          component={TeachersScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Teachers',
+          }}
+        />
+      )}
+
+      {/* Parents - Education Admin only */}
+      {isUserAdmin && accountType === 'education' && (
+        <Tab.Screen
+          name="Parents"
+          component={ParentsScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Parents',
           }}
         />
       )}

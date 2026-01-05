@@ -52,6 +52,8 @@ export type OrganizationTabParamList = {
   OSHACompliance: undefined;
   TrainingRecords: undefined;
   EmergencyNotifications: undefined;
+  Teachers: undefined;
+  Parents: undefined;
   Location: undefined;
   Profile: undefined;
   Settings: undefined;

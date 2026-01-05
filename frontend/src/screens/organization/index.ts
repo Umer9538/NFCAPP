@@ -18,3 +18,5 @@ export { default as TrainingRecordsScreen } from './TrainingRecordsScreen';
 export { default as EmergencyNotificationsScreen } from './EmergencyNotificationsScreen';
 export { default as WorkersScreen } from './WorkersScreen';
 export { default as StudentsScreen } from './StudentsScreen';
+export { default as TeachersScreen } from './TeachersScreen';
+export { default as ParentsScreen } from './ParentsScreen';
