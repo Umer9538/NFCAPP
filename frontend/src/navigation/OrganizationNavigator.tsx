@@ -29,7 +29,7 @@ import { GRAY } from '@/constants/colors';
 import { typography } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useAuthStore } from '@/store/authStore';
-import { getDashboardConfig, isAdmin } from '@/config/dashboardConfig';
+import { getDashboardConfig, isAdmin, isTeacher, isParent } from '@/config/dashboardConfig';
 
 // Import screens
 import ProfileScreen from '@/screens/dashboard/ProfileScreen';
@@ -58,11 +58,20 @@ export default function OrganizationNavigator() {
   const userRole = useAuthStore((state) => state.user?.role);
   const dashboardConfig = getDashboardConfig(accountType);
 
-  // Check if user is admin
+  // Check user role
   const isUserAdmin = isAdmin(userRole);
+  const isUserTeacher = isTeacher(userRole);
+  const isUserParent = isParent(userRole);
 
   // Get terminology for tab labels
   const employeesLabel = dashboardConfig.terminology.users;
+
+  // Teacher sees "My Students", Parent sees "My Children"
+  const getStudentsLabel = () => {
+    if (isUserTeacher) return 'My Students';
+    if (isUserParent) return 'My Children';
+    return employeesLabel;
+  };
 
   // Get icon for employees based on account type
   const getEmployeesIcon = (focused: boolean, color: string, size: number) => {
@@ -151,8 +160,10 @@ export default function OrganizationNavigator() {
         }}
       />
 
-      {/* Employees/Workers/Students - Admin only (or Supervisor for construction) */}
-      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
+      {/* Employees/Workers/Students - Admin, Supervisor, Teacher, Parent */}
+      {(isUserAdmin ||
+        (accountType === 'construction' && userRole === 'supervisor') ||
+        (accountType === 'education' && (isUserTeacher || isUserParent))) && (
         <Tab.Screen
           name="Employees"
           component={
@@ -164,7 +175,7 @@ export default function OrganizationNavigator() {
           }
           options={{
             headerShown: false,
-            tabBarLabel: employeesLabel,
+            tabBarLabel: getStudentsLabel(),
           }}
         />
       )}
@@ -239,7 +250,7 @@ export default function OrganizationNavigator() {
         }}
       />
 
-      {/* My Profile - Non-admin only */}
+      {/* My Profile - Non-admin users (employees, workers, students, teachers, parents) */}
       {!isUserAdmin && (
         <Tab.Screen
           name="Profile"

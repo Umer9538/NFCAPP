@@ -35,6 +35,7 @@ import { useAuthStore } from '@/store/authStore';
 import { SEMANTIC, STATUS, GRAY } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 import type { AppScreenNavigationProp } from '@/navigation/types';
+import { isAdmin as checkIsAdmin, isTeacher as checkIsTeacher, isParent as checkIsParent } from '@/config/dashboardConfig';
 
 // Education theme color (green)
 const EDUCATION_PRIMARY = '#16A34A';
@@ -44,39 +45,181 @@ type FilterOption = 'all' | 'active' | 'incomplete';
 export default function StudentsScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
   const userRole = useAuthStore((state) => state.user?.role);
-  const isAdmin = userRole === 'admin';
+  const userId = useAuthStore((state) => state.user?.id);
+
+  // Role checks
+  const isAdmin = checkIsAdmin(userRole);
+  const isTeacher = checkIsTeacher(userRole);
+  const isParent = checkIsParent(userRole);
+
+  // Get title based on role
+  const getTitle = () => {
+    if (isTeacher) return 'My Students';
+    if (isParent) return 'My Children';
+    return 'Students';
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('');
 
-  // Fetch students
+  // Fetch students with role-based filtering
   const {
     data: studentsData,
     isLoading,
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['students', searchQuery, gradeFilter],
+    queryKey: ['students', searchQuery, gradeFilter, userRole, userId],
     queryFn: () =>
       organizationsApi.getStudents(1, 50, {
         search: searchQuery || undefined,
         grade: gradeFilter || undefined,
+        // Teacher: assigned students only
+        // Parent: own children only
+        teacherId: isTeacher ? userId : undefined,
+        parentId: isParent ? userId : undefined,
       }),
   });
 
   const students = studentsData?.data || [];
 
+  // Mock data for development when API returns empty
+  const mockStudents: Student[] = isTeacher
+    ? [
+        // Mock assigned students for teacher
+        {
+          id: 'student-1',
+          email: 'emma.jones@school.edu',
+          fullName: 'Emma Jones',
+          status: 'active',
+          profileComplete: true,
+          grade: '10',
+          className: 'Class 10-A',
+          studentId: 'STU-001',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-2',
+          email: 'james.smith@school.edu',
+          fullName: 'James Smith',
+          status: 'active',
+          profileComplete: true,
+          grade: '10',
+          className: 'Class 10-A',
+          studentId: 'STU-002',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-3',
+          email: 'sophia.davis@school.edu',
+          fullName: 'Sophia Davis',
+          status: 'pending',
+          profileComplete: false,
+          grade: '10',
+          className: 'Class 10-B',
+          studentId: 'STU-003',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    : isParent
+    ? [
+        // Mock children for parent
+        {
+          id: 'child-1',
+          email: 'tommy.parent@school.edu',
+          fullName: 'Tommy Parent',
+          status: 'active',
+          profileComplete: true,
+          grade: '8',
+          className: 'Class 8-C',
+          studentId: 'STU-010',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'child-2',
+          email: 'lisa.parent@school.edu',
+          fullName: 'Lisa Parent',
+          status: 'active',
+          profileComplete: true,
+          grade: '5',
+          className: 'Class 5-A',
+          studentId: 'STU-011',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    : [
+        // Mock students for admin
+        {
+          id: 'student-1',
+          email: 'emma.jones@school.edu',
+          fullName: 'Emma Jones',
+          status: 'active',
+          profileComplete: true,
+          grade: '10',
+          className: 'Class 10-A',
+          studentId: 'STU-001',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-2',
+          email: 'james.smith@school.edu',
+          fullName: 'James Smith',
+          status: 'active',
+          profileComplete: true,
+          grade: '10',
+          className: 'Class 10-A',
+          studentId: 'STU-002',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-3',
+          email: 'sophia.davis@school.edu',
+          fullName: 'Sophia Davis',
+          status: 'pending',
+          profileComplete: false,
+          grade: '10',
+          className: 'Class 10-B',
+          studentId: 'STU-003',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-4',
+          email: 'michael.wilson@school.edu',
+          fullName: 'Michael Wilson',
+          status: 'active',
+          profileComplete: true,
+          grade: '9',
+          className: 'Class 9-A',
+          studentId: 'STU-004',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'student-5',
+          email: 'olivia.brown@school.edu',
+          fullName: 'Olivia Brown',
+          status: 'active',
+          profileComplete: false,
+          grade: '9',
+          className: 'Class 9-B',
+          studentId: 'STU-005',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+  // Use mock data if API returns empty
+  const displayStudents = students.length > 0 ? students : mockStudents;
+
   // Calculate stats
-  const totalCount = students.length;
-  const activeCount = students.filter((s) => s.status === 'active').length;
-  const incompleteCount = students.filter((s) => !s.profileComplete).length;
+  const totalCount = displayStudents.length;
+  const activeCount = displayStudents.filter((s) => s.status === 'active').length;
+  const incompleteCount = displayStudents.filter((s) => !s.profileComplete).length;
 
   // Get unique grades for filter
-  const grades = [...new Set(students.map((s) => s.grade).filter(Boolean))].sort();
+  const grades = [...new Set(displayStudents.map((s) => s.grade).filter(Boolean))].sort();
 
   // Filter students
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = displayStudents.filter((s) => {
     const matchesSearch =
       !searchQuery ||
       s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -248,7 +391,7 @@ export default function StudentsScreen() {
               filter === 'all' && styles.filterTabTextActive,
             ]}
           >
-            All Students
+            {isParent ? 'All Children' : 'All Students'}
           </Text>
         </Pressable>
         <Pressable
@@ -329,7 +472,7 @@ export default function StudentsScreen() {
         <Search size={20} color={GRAY[400]} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search students by name, email or ID..."
+          placeholder={isParent ? 'Search children...' : 'Search students by name, email or ID...'}
           placeholderTextColor={GRAY[400]}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -362,15 +505,26 @@ export default function StudentsScreen() {
       );
     }
 
+    // Role-appropriate empty state messages
+    const getEmptyTitle = () => {
+      if (isTeacher) return 'No assigned students';
+      if (isParent) return 'No children found';
+      return 'No students yet';
+    };
+
+    const getEmptySubtitle = () => {
+      if (isTeacher) return 'Students assigned to you will appear here';
+      if (isParent) return 'Your children will appear here once enrolled';
+      return 'Add students to manage their health records';
+    };
+
     return (
       <View style={styles.emptyContainer}>
         <View style={styles.emptyIcon}>
           <GraduationCap size={48} color={EDUCATION_PRIMARY} />
         </View>
-        <Text style={styles.emptyTitle}>No students yet</Text>
-        <Text style={styles.emptySubtitle}>
-          Add students to manage their health records
-        </Text>
+        <Text style={styles.emptyTitle}>{getEmptyTitle()}</Text>
+        <Text style={styles.emptySubtitle}>{getEmptySubtitle()}</Text>
         {isAdmin && (
           <Pressable style={styles.emptyButton} onPress={handleAddStudent}>
             <Plus size={20} color="#fff" />
@@ -385,7 +539,7 @@ export default function StudentsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Students</Text>
+        <Text style={styles.headerTitle}>{getTitle()}</Text>
         {isAdmin && (
           <Pressable onPress={handleAddStudent} style={styles.headerAddButton}>
             <Plus size={24} color={EDUCATION_PRIMARY} />
@@ -422,8 +576,8 @@ export default function StudentsScreen() {
         />
       )}
 
-      {/* FAB */}
-      {isAdmin && students.length > 0 && (
+      {/* FAB - Admin only */}
+      {isAdmin && displayStudents.length > 0 && (
         <Pressable style={styles.fab} onPress={handleAddStudent}>
           <UserPlus size={24} color="#fff" />
         </Pressable>

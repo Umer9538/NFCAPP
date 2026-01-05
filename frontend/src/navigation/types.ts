@@ -63,7 +63,7 @@ export type OrganizationTabParamList = {
 export type OrganizationStackParamList = {
   SetupOrganization: undefined;
   Employees: undefined;
-  AddEmployee: { employeeId?: string };
+  AddEmployee: { employeeId?: string; type?: 'employee' | 'worker' | 'student' };
   EmployeeDetails: { employeeId: string };
   OrganizationMedicalInfo: undefined;
   IncidentReports: undefined;
@@ -131,7 +131,7 @@ export type AppStackParamList = {
   SetupOrganization: undefined;
   OrganizationSettings: undefined;
   Employees: undefined;
-  AddEmployee: { employeeId?: string };
+  AddEmployee: { employeeId?: string; type?: 'employee' | 'worker' | 'student' };
   EmployeeDetails: { employeeId: string };
   MedicalRecords: undefined;
   IncidentReports: undefined;

@@ -863,11 +863,13 @@ export interface Student {
 
 /**
  * Get students
+ * @param filters.teacherId - For teachers: only return assigned students
+ * @param filters.parentId - For parents: only return their children
  */
 export async function getStudents(
   page: number = 1,
   pageSize: number = 20,
-  filters?: { grade?: string; className?: string; search?: string }
+  filters?: { grade?: string; className?: string; search?: string; teacherId?: string; parentId?: string }
 ): Promise<PaginatedResponse<Student>> {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -876,6 +878,8 @@ export async function getStudents(
   if (filters?.grade) params.append('grade', filters.grade);
   if (filters?.className) params.append('className', filters.className);
   if (filters?.search) params.append('search', filters.search);
+  if (filters?.teacherId) params.append('teacherId', filters.teacherId);
+  if (filters?.parentId) params.append('parentId', filters.parentId);
 
   const response = await api.get<any>(`/api/organizations/students?${params.toString()}`);
 

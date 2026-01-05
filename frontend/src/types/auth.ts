@@ -7,8 +7,13 @@ import type { AccountType } from '@/config/dashboardConfig';
 
 /**
  * User role within an organization
+ * - admin: Full access to organization
+ * - supervisor: Construction - can view workers, training, incidents
+ * - teacher: Education - can view assigned students only
+ * - parent: Education - can view own children only
+ * - user/employee/worker/student: Basic access to own profile
  */
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'supervisor' | 'teacher' | 'parent' | 'user' | 'employee' | 'worker' | 'student';
 
 /**
  * User model matching backend

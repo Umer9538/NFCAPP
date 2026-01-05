@@ -292,7 +292,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return mockResponse;
       }
 
-      // Test education user
+      // Test education student
       if (email === 'student@university.edu' && password === 'Test123!') {
         const mockResponse: LoginResponse = {
           token: 'mock-edu-token-123',
@@ -307,7 +307,123 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             twoFactorEnabled: false,
             accountType: 'education',
             organizationId: 'edu-org-789',
-            role: 'user',
+            role: 'student',
+            suspended: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          requiresTwoFactor: false,
+        };
+
+        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
+        get().setUser(mockResponse.user);
+        set({ isLoading: false });
+        return mockResponse;
+      }
+
+      // Test construction supervisor
+      if (email === 'supervisor@construction.com' && password === 'Test123!') {
+        const mockResponse: LoginResponse = {
+          token: 'mock-supervisor-token-123',
+          refreshToken: 'mock-supervisor-refresh-token-123',
+          user: {
+            id: 'mock-supervisor-1',
+            email: 'supervisor@construction.com',
+            firstName: 'Bob',
+            lastName: 'Supervisor',
+            phoneNumber: '+1 (555) 111-2222',
+            emailVerified: true,
+            twoFactorEnabled: false,
+            accountType: 'construction',
+            organizationId: 'construction-org-456',
+            role: 'supervisor',
+            suspended: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          requiresTwoFactor: false,
+        };
+
+        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
+        get().setUser(mockResponse.user);
+        set({ isLoading: false });
+        return mockResponse;
+      }
+
+      // Test education admin
+      if (email === 'admin@school.edu' && password === 'Test123!') {
+        const mockResponse: LoginResponse = {
+          token: 'mock-edu-admin-token-123',
+          refreshToken: 'mock-edu-admin-refresh-token-123',
+          user: {
+            id: 'mock-edu-admin-1',
+            email: 'admin@school.edu',
+            firstName: 'Principal',
+            lastName: 'Smith',
+            phoneNumber: '+1 (555) 333-4444',
+            emailVerified: true,
+            twoFactorEnabled: false,
+            accountType: 'education',
+            organizationId: 'edu-org-789',
+            role: 'admin',
+            suspended: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          requiresTwoFactor: false,
+        };
+
+        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
+        get().setUser(mockResponse.user);
+        set({ isLoading: false });
+        return mockResponse;
+      }
+
+      // Test education teacher
+      if (email === 'teacher@school.edu' && password === 'Test123!') {
+        const mockResponse: LoginResponse = {
+          token: 'mock-teacher-token-123',
+          refreshToken: 'mock-teacher-refresh-token-123',
+          user: {
+            id: 'mock-teacher-1',
+            email: 'teacher@school.edu',
+            firstName: 'Jane',
+            lastName: 'Teacher',
+            phoneNumber: '+1 (555) 555-6666',
+            emailVerified: true,
+            twoFactorEnabled: false,
+            accountType: 'education',
+            organizationId: 'edu-org-789',
+            role: 'teacher',
+            suspended: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          requiresTwoFactor: false,
+        };
+
+        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
+        get().setUser(mockResponse.user);
+        set({ isLoading: false });
+        return mockResponse;
+      }
+
+      // Test education parent
+      if (email === 'parent@family.com' && password === 'Test123!') {
+        const mockResponse: LoginResponse = {
+          token: 'mock-parent-token-123',
+          refreshToken: 'mock-parent-refresh-token-123',
+          user: {
+            id: 'mock-parent-1',
+            email: 'parent@family.com',
+            firstName: 'Mary',
+            lastName: 'Parent',
+            phoneNumber: '+1 (555) 777-8888',
+            emailVerified: true,
+            twoFactorEnabled: false,
+            accountType: 'education',
+            organizationId: 'edu-org-789',
+            role: 'parent',
             suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
