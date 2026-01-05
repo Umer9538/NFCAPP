@@ -45,6 +45,7 @@ import AccountSettingsScreen from '@/screens/settings/AccountSettingsScreen';
 import EditProfileScreen from '@/screens/profile/EditProfileScreen';
 import SecuritySettingsScreen from '@/screens/settings/SecuritySettingsScreen';
 import NotificationSettingsScreen from '@/screens/settings/NotificationSettingsScreen';
+import HealthRemindersScreen from '@/screens/settings/HealthRemindersScreen';
 import PrivacySettingsScreen from '@/screens/settings/PrivacySettingsScreen';
 import ChangePasswordScreen from '@/screens/settings/ChangePasswordScreen';
 import Enable2FAScreen from '@/screens/settings/Enable2FAScreen';
@@ -332,6 +333,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="HealthReminders"
+        component={HealthRemindersScreen}
         options={{
           headerShown: false,
         }}

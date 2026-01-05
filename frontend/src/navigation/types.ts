@@ -111,6 +111,7 @@ export type AppStackParamList = {
   EditProfile: undefined;
   SecuritySettings: undefined;
   NotificationSettings: undefined;
+  HealthReminders: undefined;
   PrivacySettings: undefined;
   ChangePassword: undefined;
   Enable2FA: undefined;
