@@ -557,6 +557,403 @@ export async function getOrgStats(): Promise<{
   return await api.get('/api/organizations/stats');
 }
 
+// ============================================
+// OSHA Compliance (Construction)
+// ============================================
+
+export type OSHAComplianceStatus = 'compliant' | 'non_compliant' | 'pending';
+
+export interface OSHAComplianceMetric {
+  id: string;
+  organizationId: string;
+  category: string;
+  status: OSHAComplianceStatus;
+  lastReview: string;
+  nextReview: string;
+  violations: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OSHAComplianceStats {
+  total: number;
+  compliant: number;
+  nonCompliant: number;
+  pending: number;
+  complianceRate: number;
+  upcomingReviews: number;
+}
+
+export interface CreateOSHAMetricRequest {
+  category: string;
+  status: OSHAComplianceStatus;
+  lastReview: string;
+  nextReview: string;
+  violations?: number;
+  notes?: string;
+}
+
+export interface UpdateOSHAMetricRequest {
+  status?: OSHAComplianceStatus;
+  lastReview?: string;
+  nextReview?: string;
+  violations?: number;
+  notes?: string;
+}
+
+/**
+ * Get OSHA compliance metrics
+ */
+export async function getOSHACompliance(): Promise<{
+  metrics: OSHAComplianceMetric[];
+  stats: OSHAComplianceStats;
+}> {
+  const response = await api.get<any>('/api/organizations/osha-compliance');
+
+  const metrics = (response?.metrics || response?.data || response || []).map((m: any) => ({
+    id: m.id,
+    organizationId: m.organizationId,
+    category: m.category,
+    status: m.status,
+    lastReview: m.lastReview,
+    nextReview: m.nextReview,
+    violations: m.violations || 0,
+    notes: m.notes,
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
+  }));
+
+  const stats = response?.stats || {
+    total: metrics.length,
+    compliant: metrics.filter((m: OSHAComplianceMetric) => m.status === 'compliant').length,
+    nonCompliant: metrics.filter((m: OSHAComplianceMetric) => m.status === 'non_compliant').length,
+    pending: metrics.filter((m: OSHAComplianceMetric) => m.status === 'pending').length,
+    complianceRate: metrics.length > 0
+      ? Math.round((metrics.filter((m: OSHAComplianceMetric) => m.status === 'compliant').length / metrics.length) * 100)
+      : 0,
+    upcomingReviews: metrics.filter((m: OSHAComplianceMetric) => {
+      const reviewDate = new Date(m.nextReview);
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return reviewDate <= thirtyDaysFromNow;
+    }).length,
+  };
+
+  return { metrics, stats };
+}
+
+/**
+ * Create OSHA compliance metric
+ */
+export async function createOSHAMetric(data: CreateOSHAMetricRequest): Promise<OSHAComplianceMetric> {
+  return api.post<OSHAComplianceMetric>('/api/organizations/osha-compliance', data);
+}
+
+/**
+ * Update OSHA compliance metric
+ */
+export async function updateOSHAMetric(
+  metricId: string,
+  data: UpdateOSHAMetricRequest
+): Promise<OSHAComplianceMetric> {
+  return api.put<OSHAComplianceMetric>(`/api/organizations/osha-compliance/${metricId}`, data);
+}
+
+// ============================================
+// Training Records (Construction)
+// ============================================
+
+export type TrainingStatus = 'current' | 'expired' | 'expiring_soon';
+
+export interface TrainingRecord {
+  id: string;
+  organizationId: string;
+  workerId: string;
+  workerName: string;
+  trainingType: string;
+  completedDate: string;
+  expiryDate?: string;
+  status: TrainingStatus;
+  certificateNumber?: string;
+  instructor?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingStats {
+  total: number;
+  current: number;
+  expired: number;
+  expiringSoon: number;
+  complianceRate: number;
+  byType: Record<string, number>;
+}
+
+export interface CreateTrainingRecordRequest {
+  workerId: string;
+  trainingType: string;
+  completedDate: string;
+  expiryDate?: string;
+}
+
+/**
+ * Get training records
+ */
+export async function getTrainingRecords(
+  filters?: {
+    page?: number;
+    pageSize?: number;
+    workerId?: string;
+    status?: TrainingStatus;
+    search?: string;
+  }
+): Promise<{
+  records: TrainingRecord[];
+  stats: TrainingStats;
+}> {
+  const params = new URLSearchParams();
+  if (filters?.page) params.append('page', filters.page.toString());
+  if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString());
+  if (filters?.workerId) params.append('workerId', filters.workerId);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await api.get<any>(`/api/organizations/training-records?${params.toString()}`);
+
+  const records = (response?.records || response?.data || response || []).map((r: any) => ({
+    id: r.id,
+    organizationId: r.organizationId,
+    workerId: r.workerId,
+    workerName: r.workerName,
+    trainingType: r.trainingType,
+    completedDate: r.completedDate,
+    expiryDate: r.expiryDate,
+    status: r.status || calculateTrainingStatus(r.expiryDate),
+    certificateNumber: r.certificateNumber,
+    instructor: r.instructor,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }));
+
+  const stats = response?.stats || calculateTrainingStats(records);
+
+  return { records, stats };
+}
+
+/**
+ * Calculate training status based on expiry date
+ */
+function calculateTrainingStatus(expiryDate?: string): TrainingStatus {
+  if (!expiryDate) return 'current';
+
+  const expiry = new Date(expiryDate);
+  const now = new Date();
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+  if (expiry < now) return 'expired';
+  if (expiry <= thirtyDaysFromNow) return 'expiring_soon';
+  return 'current';
+}
+
+/**
+ * Calculate training stats
+ */
+function calculateTrainingStats(records: TrainingRecord[]): TrainingStats {
+  const byType: Record<string, number> = {};
+
+  records.forEach(r => {
+    byType[r.trainingType] = (byType[r.trainingType] || 0) + 1;
+  });
+
+  const current = records.filter(r => r.status === 'current').length;
+  const total = records.length;
+
+  return {
+    total,
+    current,
+    expired: records.filter(r => r.status === 'expired').length,
+    expiringSoon: records.filter(r => r.status === 'expiring_soon').length,
+    complianceRate: total > 0 ? Math.round((current / total) * 100) : 0,
+    byType,
+  };
+}
+
+/**
+ * Create training record
+ */
+export async function createTrainingRecord(data: CreateTrainingRecordRequest): Promise<TrainingRecord> {
+  return api.post<TrainingRecord>('/api/organizations/training-records', data);
+}
+
+// ============================================
+// Emergency Notifications (Education)
+// ============================================
+
+export type NotificationType = 'emergency' | 'alert' | 'info' | 'weather';
+export type NotificationPriority = 'critical' | 'high' | 'medium' | 'low';
+export type NotificationAudience = 'all' | 'students' | 'parents' | 'staff' | 'teachers';
+
+export interface EmergencyNotification {
+  id: string;
+  organizationId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  targetAudience: NotificationAudience[];
+  targetGrade?: string;
+  targetClass?: string;
+  campus?: string;
+  sentAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateNotificationRequest {
+  title: string;
+  message: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  targetAudience: NotificationAudience[];
+  targetGrade?: string;
+  targetClass?: string;
+  campus?: string;
+  expiresAt?: string;
+}
+
+// Alias for backwards compatibility
+export type SendNotificationRequest = CreateNotificationRequest;
+
+/**
+ * Get emergency notifications
+ */
+export async function getEmergencyNotifications(): Promise<EmergencyNotification[]> {
+  const response = await api.get<any>('/api/organizations/emergency-notifications');
+  return response?.notifications || response?.data || response || [];
+}
+
+/**
+ * Send emergency notification
+ */
+export async function sendEmergencyNotification(
+  data: CreateNotificationRequest
+): Promise<EmergencyNotification> {
+  return api.post<EmergencyNotification>('/api/organizations/emergency-notifications', data);
+}
+
+// ============================================
+// Students (Education)
+// ============================================
+
+export interface Student {
+  id: string;
+  fullName: string;
+  email: string;
+  grade?: string;
+  className?: string;
+  campus?: string;
+  studentId?: string;
+  profileComplete: boolean;
+  status: 'active' | 'pending' | 'inactive';
+  createdAt: string;
+}
+
+/**
+ * Get students
+ */
+export async function getStudents(
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: { grade?: string; className?: string; search?: string }
+): Promise<PaginatedResponse<Student>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    pageSize: pageSize.toString(),
+  });
+  if (filters?.grade) params.append('grade', filters.grade);
+  if (filters?.className) params.append('className', filters.className);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await api.get<any>(`/api/organizations/students?${params.toString()}`);
+
+  const students = (response?.students || response?.data || response || []).map((s: any) => ({
+    id: s.id,
+    fullName: s.fullName,
+    email: s.email,
+    grade: s.grade,
+    className: s.className,
+    campus: s.campus,
+    studentId: s.studentId,
+    profileComplete: s.profileComplete || false,
+    status: s.status || 'active',
+    createdAt: s.createdAt,
+  }));
+
+  return {
+    data: students,
+    total: response?.total || students.length,
+    page: response?.page || page,
+    pageSize: response?.pageSize || pageSize,
+    totalPages: response?.totalPages || Math.ceil((response?.total || students.length) / pageSize),
+  };
+}
+
+// ============================================
+// Workers (Construction)
+// ============================================
+
+export interface Worker {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber?: string;
+  role?: string;
+  profileComplete: boolean;
+  status: 'active' | 'pending' | 'inactive';
+  trainingStatus?: 'current' | 'expired' | 'expiring_soon';
+  createdAt: string;
+}
+
+/**
+ * Get workers
+ */
+export async function getWorkers(
+  page: number = 1,
+  pageSize: number = 20,
+  search?: string
+): Promise<PaginatedResponse<Worker>> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    pageSize: pageSize.toString(),
+  });
+  if (search) params.append('search', search);
+
+  const response = await api.get<any>(`/api/organizations/workers?${params.toString()}`);
+
+  const workers = (response?.workers || response?.data || response || []).map((w: any) => ({
+    id: w.id,
+    fullName: w.fullName,
+    email: w.email,
+    phoneNumber: w.phoneNumber,
+    role: w.role,
+    profileComplete: w.profileComplete || false,
+    status: w.status || 'active',
+    trainingStatus: w.trainingStatus,
+    createdAt: w.createdAt,
+  }));
+
+  return {
+    data: workers,
+    total: response?.total || workers.length,
+    page: response?.page || page,
+    pageSize: response?.pageSize || pageSize,
+    totalPages: response?.totalPages || Math.ceil((response?.total || workers.length) / pageSize),
+  };
+}
+
 /**
  * Export organizations API
  */
@@ -580,4 +977,18 @@ export const organizationsApi = {
   updateIncidentStatus,
   deleteIncidentReport,
   getOrgStats,
+  // OSHA Compliance (Construction)
+  getOSHACompliance,
+  createOSHAMetric,
+  updateOSHAMetric,
+  // Training Records (Construction)
+  getTrainingRecords,
+  createTrainingRecord,
+  // Emergency Notifications (Education)
+  getEmergencyNotifications,
+  sendEmergencyNotification,
+  // Students (Education)
+  getStudents,
+  // Workers (Construction)
+  getWorkers,
 };

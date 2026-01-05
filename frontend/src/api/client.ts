@@ -72,11 +72,18 @@ apiClient.interceptors.response.use(
 
     // Log error in development
     if (__DEV__) {
-      console.error(
-        `❌ API Error: ${originalRequest?.url}`,
-        error.response?.status,
-        error.response?.data
-      );
+      if (error.response) {
+        console.error(
+          `❌ API Error: ${originalRequest?.url}`,
+          error.response.status,
+          error.response.data
+        );
+      } else {
+        console.error(
+          `❌ Network Error: ${originalRequest?.url}`,
+          error.message || 'No response from server'
+        );
+      }
     }
 
     // Handle 401 Unauthorized - Token expired
