@@ -202,6 +202,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ isLoading: false });
       return response;
     } catch (error: any) {
+      console.log('🔐 Login failed, checking for test credentials...', { email });
+
       // DEVELOPMENT MODE: Allow login with test credentials even if API fails
       if (email === 'test@medguard.com' && password === 'Test123!') {
         const mockResponse: LoginResponse = {
@@ -231,8 +233,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return mockResponse;
       }
 
-      // Test corporate user
-      if (email === 'admin@company.com' && password === 'Test123!') {
+      // Test corporate user (multiple email aliases)
+      if ((email === 'admin@company.com' || email === 'corp.admin@test.com' || email === 'admin-corp@test.com') && password === 'Test123!') {
         const mockResponse: LoginResponse = {
           token: 'mock-corp-token-123',
           refreshToken: 'mock-corp-refresh-token-123',
@@ -260,22 +262,23 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return mockResponse;
       }
 
-      // Test construction user
-      if (email === 'worker@construction.com' && password === 'Test123!') {
+      // Test construction user (multiple email aliases)
+      if ((email === 'worker@construction.com' || email === 'construction-admin@test.com') && password === 'Test123!') {
+        const isAdmin = email.includes('admin');
         const mockResponse: LoginResponse = {
           token: 'mock-construction-token-123',
           refreshToken: 'mock-construction-refresh-token-123',
           user: {
             id: 'mock-construction-user-1',
-            email: 'worker@construction.com',
-            firstName: 'Mike',
-            lastName: 'Builder',
+            email: email,
+            firstName: isAdmin ? 'Construction' : 'Mike',
+            lastName: isAdmin ? 'Admin' : 'Builder',
             phoneNumber: '+1 (555) 456-7890',
             emailVerified: true,
             twoFactorEnabled: false,
             accountType: 'construction',
             organizationId: 'construction-org-456',
-            role: 'user',
+            role: isAdmin ? 'admin' : 'user',
             suspended: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -318,9 +321,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return mockResponse;
       }
 
-      const errorMessage = error?.message || 'Login failed. Please try again.';
+      // Extract error message properly
+      let errorMessage = 'Login failed. Please try again.';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      console.log('🔐 Login error:', errorMessage);
       set({ isLoading: false, error: errorMessage });
-      throw error;
+
+      // Throw an error with the message so UI can catch it
+      const loginError = new Error(errorMessage);
+      throw loginError;
     }
   },
 
@@ -350,37 +364,52 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    * Logout user
    */
   logout: async () => {
-    set({ isLoading: true });
+    console.log('🔐 Starting logout...');
 
     try {
-      // Call logout API
-      await authApi.logout();
+      // Call logout API (don't wait for it, just fire and forget)
+      authApi.logout().catch((error) => {
+        console.error('Logout API error (ignored):', error);
+      });
     } catch (error) {
       console.error('Logout error:', error);
-      // Continue with local logout even if API fails
     }
 
-    // Clear tokens from API client
-    await clearAuthTokens();
+    try {
+      // Clear tokens from API client
+      await clearAuthTokens();
 
-    // Clear all user data from AsyncStorage
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.AUTH_TOKEN,
-      STORAGE_KEYS.REFRESH_TOKEN,
-      STORAGE_KEYS.USER_DATA,
-      STORAGE_KEYS.ACCOUNT_TYPE,
-      STORAGE_KEYS.ORGANIZATION_ID,
-    ]);
+      // Clear all user data from AsyncStorage
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REFRESH_TOKEN,
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.ACCOUNT_TYPE,
+        STORAGE_KEYS.ORGANIZATION_ID,
+      ]);
 
-    // Clear secure storage
-    await secureStoreSet(SECURE_KEYS.ACCOUNT_TYPE, null);
-    await secureStoreSet(SECURE_KEYS.ORGANIZATION_ID, null);
+      // Clear secure storage
+      await secureStoreSet(SECURE_KEYS.ACCOUNT_TYPE, null);
+      await secureStoreSet(SECURE_KEYS.ORGANIZATION_ID, null);
+    } catch (error) {
+      console.error('Error clearing storage:', error);
+    }
 
-    // Reset state
+    // Reset state - this MUST happen to trigger navigation
+    console.log('🔐 Resetting auth state...');
     set({
-      ...initialState,
+      user: null,
+      token: null,
+      refreshToken: null,
+      isAuthenticated: false,
       isLoading: false,
+      error: null,
+      accountType: null,
+      organizationId: null,
+      isOrgAdmin: false,
+      suspended: false,
     });
+    console.log('🔐 Logout complete');
   },
 
   /**
