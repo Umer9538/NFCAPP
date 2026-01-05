@@ -38,6 +38,8 @@ import { LocationSharingScreen } from '@/screens/location';
 import {
   OrganizationDashboardScreen,
   EmployeesScreen,
+  WorkersScreen,
+  StudentsScreen,
   OrganizationMedicalInfoScreen,
   IncidentReportsScreen,
   OSHAComplianceScreen,
@@ -149,11 +151,17 @@ export default function OrganizationNavigator() {
         }}
       />
 
-      {/* Employees - Admin only */}
-      {isUserAdmin && (
+      {/* Employees/Workers/Students - Admin only (or Supervisor for construction) */}
+      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
         <Tab.Screen
           name="Employees"
-          component={EmployeesScreen}
+          component={
+            accountType === 'construction'
+              ? WorkersScreen
+              : accountType === 'education'
+              ? StudentsScreen
+              : EmployeesScreen
+          }
           options={{
             headerShown: false,
             tabBarLabel: employeesLabel,
@@ -161,8 +169,8 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* MedicalInfo - Admin only */}
-      {isUserAdmin && (
+      {/* MedicalInfo - Admin only (or Supervisor for construction) */}
+      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
         <Tab.Screen
           name="MedicalInfo"
           component={OrganizationMedicalInfoScreen}
@@ -173,8 +181,8 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* Incident Reports - Admin only */}
-      {isUserAdmin && (
+      {/* Incident Reports - Admin only (or Supervisor for construction) */}
+      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
         <Tab.Screen
           name="IncidentReports"
           component={IncidentReportsScreen}
@@ -197,8 +205,8 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* Training Records - Construction Admin only */}
-      {isUserAdmin && accountType === 'construction' && (
+      {/* Training Records - Construction Admin & Supervisor */}
+      {(isUserAdmin || userRole === 'supervisor') && accountType === 'construction' && (
         <Tab.Screen
           name="TrainingRecords"
           component={TrainingRecordsScreen}

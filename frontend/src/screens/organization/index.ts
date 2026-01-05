@@ -16,3 +16,5 @@ export { default as EditIncidentReportScreen } from './EditIncidentReportScreen'
 export { default as OSHAComplianceScreen } from './OSHAComplianceScreen';
 export { default as TrainingRecordsScreen } from './TrainingRecordsScreen';
 export { default as EmergencyNotificationsScreen } from './EmergencyNotificationsScreen';
+export { default as WorkersScreen } from './WorkersScreen';
+export { default as StudentsScreen } from './StudentsScreen';

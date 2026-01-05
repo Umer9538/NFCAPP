@@ -18,7 +18,12 @@ import {
 export type AccountType = 'individual' | 'corporate' | 'construction' | 'education';
 
 // User Role Type
-export type UserRole = 'admin' | 'user';
+// - admin: Full access to organization
+// - supervisor: Construction - can view workers, training, incidents (no OSHA)
+// - teacher: Education - can view assigned students only
+// - parent: Education - can view own children only
+// - user/employee/worker/student: Basic access to own profile
+export type UserRole = 'admin' | 'supervisor' | 'teacher' | 'parent' | 'user' | 'employee' | 'worker' | 'student';
 
 // Route names for access control
 export type IndividualRoute = 'Home' | 'Profile' | 'Bracelet' | 'Settings' | 'Subscription' | 'AuditLogs' | 'Medical';
@@ -436,6 +441,42 @@ export function isAdmin(role?: UserRole | string | null): boolean {
 }
 
 /**
+ * Check if the role is supervisor (construction)
+ * @param role - The user role
+ * @returns True if role is supervisor
+ */
+export function isSupervisor(role?: UserRole | string | null): boolean {
+  return role === 'supervisor';
+}
+
+/**
+ * Check if the role is teacher (education)
+ * @param role - The user role
+ * @returns True if role is teacher
+ */
+export function isTeacher(role?: UserRole | string | null): boolean {
+  return role === 'teacher';
+}
+
+/**
+ * Check if the role is parent (education)
+ * @param role - The user role
+ * @returns True if role is parent
+ */
+export function isParent(role?: UserRole | string | null): boolean {
+  return role === 'parent';
+}
+
+/**
+ * Check if the role has management access (admin or supervisor)
+ * @param role - The user role
+ * @returns True if role has management access
+ */
+export function hasManagementAccess(role?: UserRole | string | null): boolean {
+  return isAdmin(role) || isSupervisor(role);
+}
+
+/**
  * Check if a user can access a specific route
  * @param accountType - The type of account
  * @param role - The user role
@@ -548,5 +589,9 @@ export default {
   getThemeColors,
   isFeatureEnabled,
   isAdmin,
+  isSupervisor,
+  isTeacher,
+  isParent,
+  hasManagementAccess,
   canAccessRoute,
 };
