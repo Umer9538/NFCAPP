@@ -18,6 +18,10 @@ import {
   GraduationCap,
   User,
   AlertTriangle,
+  MapPin,
+  Shield,
+  BookOpen,
+  Bell,
 } from 'lucide-react-native';
 
 import type { OrganizationTabParamList } from './types';
@@ -30,11 +34,15 @@ import { getDashboardConfig, isAdmin } from '@/config/dashboardConfig';
 // Import screens
 import ProfileScreen from '@/screens/dashboard/ProfileScreen';
 import SettingsScreen from '@/screens/settings/SettingsScreen';
+import { LocationSharingScreen } from '@/screens/location';
 import {
   OrganizationDashboardScreen,
   EmployeesScreen,
   OrganizationMedicalInfoScreen,
   IncidentReportsScreen,
+  OSHAComplianceScreen,
+  TrainingRecordsScreen,
+  EmergencyNotificationsScreen,
 } from '@/screens/organization';
 
 const Tab = createBottomTabNavigator<OrganizationTabParamList>();
@@ -79,6 +87,14 @@ export default function OrganizationNavigator() {
               return <FileHeart size={size} color={color} />;
             case 'IncidentReports':
               return <AlertTriangle size={size} color={color} />;
+            case 'OSHACompliance':
+              return <Shield size={size} color={color} />;
+            case 'TrainingRecords':
+              return <BookOpen size={size} color={color} />;
+            case 'EmergencyNotifications':
+              return <Bell size={size} color={color} />;
+            case 'Location':
+              return <MapPin size={size} color={color} />;
             case 'Profile':
               return <User size={size} color={color} />;
             case 'Settings':
@@ -168,6 +184,52 @@ export default function OrganizationNavigator() {
           }}
         />
       )}
+
+      {/* OSHA Compliance - Construction Admin only */}
+      {isUserAdmin && accountType === 'construction' && (
+        <Tab.Screen
+          name="OSHACompliance"
+          component={OSHAComplianceScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'OSHA',
+          }}
+        />
+      )}
+
+      {/* Training Records - Construction Admin only */}
+      {isUserAdmin && accountType === 'construction' && (
+        <Tab.Screen
+          name="TrainingRecords"
+          component={TrainingRecordsScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Training',
+          }}
+        />
+      )}
+
+      {/* Emergency Notifications - Education Admin only */}
+      {isUserAdmin && accountType === 'education' && (
+        <Tab.Screen
+          name="EmergencyNotifications"
+          component={EmergencyNotificationsScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Alerts',
+          }}
+        />
+      )}
+
+      {/* Location Sharing - Always visible */}
+      <Tab.Screen
+        name="Location"
+        component={LocationSharingScreen}
+        options={{
+          title: 'Location',
+          tabBarLabel: 'Location',
+        }}
+      />
 
       {/* My Profile - Non-admin only */}
       {!isUserAdmin && (

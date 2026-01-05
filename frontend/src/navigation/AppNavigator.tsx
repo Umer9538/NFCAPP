@@ -81,35 +81,50 @@ const Stack = createStackNavigator<AppStackParamList>();
 /**
  * Conditional Dashboard Component
  * Shows different navigators based on account type and organization setup status
+ * Uses key prop to force re-render when accountType changes
  */
 function ConditionalDashboard() {
   const accountType = useAuthStore((state) => state.accountType);
   const organizationId = useAuthStore((state) => state.organizationId);
+  const user = useAuthStore((state) => state.user);
 
   // Check if user is an organization account type
-  const isOrgUser = accountType && isOrganizationAccount(accountType);
+  // Priority: user.accountType > store.accountType
+  const effectiveAccountType = user?.accountType || accountType;
+  const isOrgUser = effectiveAccountType && isOrganizationAccount(effectiveAccountType);
 
-  console.log('🧭 ConditionalDashboard:', { accountType, organizationId, isOrgUser });
+  console.log('🧭 ConditionalDashboard:', {
+    storeAccountType: accountType,
+    userAccountType: user?.accountType,
+    effectiveAccountType,
+    organizationId,
+    isOrgUser,
+    userRole: user?.role
+  });
 
   // If org user without organization, they need to set up first
   // This is handled by showing SetupOrganization as initial route when needed
 
   // Show OrganizationNavigator for org users, DashboardNavigator for individuals
   if (isOrgUser) {
-    console.log('🏢 Showing OrganizationNavigator');
-    return <OrganizationNavigator />;
+    console.log('🏢 Showing OrganizationNavigator for:', effectiveAccountType);
+    return <OrganizationNavigator key={`org-${effectiveAccountType}`} />;
   }
 
   console.log('👤 Showing DashboardNavigator (Individual)');
-  return <DashboardNavigator />;
+  return <DashboardNavigator key="individual" />;
 }
 
 export default function AppNavigator() {
   const accountType = useAuthStore((state) => state.accountType);
   const organizationId = useAuthStore((state) => state.organizationId);
+  const user = useAuthStore((state) => state.user);
+
+  // Use effective account type (prioritize user data)
+  const effectiveAccountType = user?.accountType || accountType;
 
   // Check if org user needs to set up organization
-  const isOrgUser = accountType && isOrganizationAccount(accountType);
+  const isOrgUser = effectiveAccountType && isOrganizationAccount(effectiveAccountType);
   const needsOrgSetup = isOrgUser && !organizationId;
 
   return (
@@ -294,7 +309,7 @@ export default function AppNavigator() {
         name="AccountSettings"
         component={AccountSettingsScreen}
         options={{
-          title: 'Account Settings',
+          headerShown: false,
         }}
       />
 
@@ -310,7 +325,7 @@ export default function AppNavigator() {
         name="SecuritySettings"
         component={SecuritySettingsScreen}
         options={{
-          title: 'Security & Privacy',
+          headerShown: false,
         }}
       />
 
@@ -318,7 +333,7 @@ export default function AppNavigator() {
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{
-          title: 'Notifications',
+          headerShown: false,
         }}
       />
 
@@ -326,7 +341,7 @@ export default function AppNavigator() {
         name="PrivacySettings"
         component={PrivacySettingsScreen}
         options={{
-          title: 'Privacy Settings',
+          headerShown: false,
         }}
       />
 
@@ -334,7 +349,7 @@ export default function AppNavigator() {
         name="ChangePassword"
         component={ChangePasswordScreen}
         options={{
-          title: 'Change Password',
+          headerShown: false,
         }}
       />
 
@@ -342,7 +357,7 @@ export default function AppNavigator() {
         name="Enable2FA"
         component={Enable2FAScreen}
         options={{
-          title: 'Two-Factor Authentication',
+          headerShown: false,
         }}
       />
 
@@ -351,7 +366,7 @@ export default function AppNavigator() {
         name="AuditLogs"
         component={AuditLogsScreen}
         options={{
-          title: 'Audit Logs',
+          headerShown: false,
         }}
       />
 
@@ -359,7 +374,7 @@ export default function AppNavigator() {
         name="ScanHistory"
         component={ScanHistoryScreen}
         options={{
-          title: 'Scan History',
+          headerShown: false,
         }}
       />
 
@@ -368,7 +383,7 @@ export default function AppNavigator() {
         name="Subscription"
         component={SubscriptionScreen}
         options={{
-          title: 'Subscription',
+          headerShown: false,
         }}
       />
 
@@ -376,7 +391,7 @@ export default function AppNavigator() {
         name="BillingHistory"
         component={BillingHistoryScreen}
         options={{
-          title: 'Billing History',
+          headerShown: false,
         }}
       />
 
@@ -385,7 +400,7 @@ export default function AppNavigator() {
         name="Help"
         component={HelpScreen}
         options={{
-          title: 'Help & Support',
+          headerShown: false,
         }}
       />
 
@@ -393,7 +408,7 @@ export default function AppNavigator() {
         name="About"
         component={AboutScreen}
         options={{
-          title: 'About MedGuard',
+          headerShown: false,
         }}
       />
 
@@ -401,7 +416,7 @@ export default function AppNavigator() {
         name="TermsOfService"
         component={TermsOfServiceScreen}
         options={{
-          title: 'Terms of Service',
+          headerShown: false,
         }}
       />
 
@@ -409,7 +424,7 @@ export default function AppNavigator() {
         name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
         options={{
-          title: 'Privacy Policy',
+          headerShown: false,
         }}
       />
 

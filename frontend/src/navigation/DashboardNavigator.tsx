@@ -19,6 +19,7 @@ import HomeScreen from '@/screens/dashboard/HomeScreen';
 import ProfileScreen from '@/screens/dashboard/ProfileScreen';
 import BraceletScreen from '@/screens/dashboard/BraceletScreen';
 import SettingsScreen from '@/screens/settings/SettingsScreen';
+import { LocationSharingScreen } from '@/screens/location';
 
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
 
@@ -44,6 +45,9 @@ export default function DashboardNavigator() {
               break;
             case 'Bracelet':
               iconName = focused ? 'watch' : 'watch-outline';
+              break;
+            case 'Location':
+              iconName = focused ? 'location' : 'location-outline';
               break;
             case 'Settings':
               iconName = focused ? 'settings' : 'settings-outline';
@@ -127,6 +131,15 @@ export default function DashboardNavigator() {
         options={{
           title: 'NFC Bracelet',
           tabBarLabel: 'Bracelet',
+        }}
+      />
+
+      <Tab.Screen
+        name="Location"
+        component={LocationSharingScreen}
+        options={{
+          title: 'Location Sharing',
+          tabBarLabel: 'Location',
         }}
       />
 

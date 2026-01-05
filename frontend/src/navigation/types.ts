@@ -37,6 +37,7 @@ export type DashboardTabParamList = {
   Home: undefined;
   Profile: undefined;
   Bracelet: undefined;
+  Location: undefined;
   Settings: undefined;
 };
 
@@ -48,6 +49,10 @@ export type OrganizationTabParamList = {
   Employees: undefined;
   MedicalInfo: undefined;
   IncidentReports: undefined;
+  OSHACompliance: undefined;
+  TrainingRecords: undefined;
+  EmergencyNotifications: undefined;
+  Location: undefined;
   Profile: undefined;
   Settings: undefined;
 };
