@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card, Badge, LoadingSpinner, Toast, useToast } from '@/components/ui';
 import { auditApi } from '@/api/audit';
@@ -53,6 +53,7 @@ const STATUS_OPTIONS: { value: AuditLogStatus | 'all'; label: string }[] = [
 
 export default function AuditLogsScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { toastConfig, hideToast, success, error: showError } = useToast();
 
   const [filters, setFilters] = useState<AuditLogFilters>({
@@ -202,7 +203,20 @@ export default function AuditLogsScreen() {
   };
 
   if (isLoading) {
-    return <LoadingSpinner visible text="Loading audit logs..." />;
+    return (
+      <View style={styles.container}>
+        <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+          <View style={styles.appBar}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+            </Pressable>
+            <Text style={styles.appBarTitle}>Access History</Text>
+            <View style={styles.backButton} />
+          </View>
+        </View>
+        <LoadingSpinner visible text="Loading audit logs..." />
+      </View>
+    );
   }
 
   const stats = data?.stats || {
@@ -213,7 +227,18 @@ export default function AuditLogsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      {/* App Bar */}
+      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.appBar}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+          </Pressable>
+          <Text style={styles.appBarTitle}>Access History</Text>
+          <View style={styles.backButton} />
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
@@ -221,8 +246,8 @@ export default function AuditLogsScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header Info */}
+        <View style={styles.headerInfo}>
           <Text style={styles.title}>Audit Logs</Text>
           <Text style={styles.subtitle}>
             Track all access to your medical profile for security and compliance.
@@ -460,7 +485,7 @@ export default function AuditLogsScreen() {
       </ScrollView>
 
       <Toast {...toastConfig} onDismiss={hideToast} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -469,6 +494,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SEMANTIC.background.default,
   },
+  headerWrapper: {
+    backgroundColor: SEMANTIC.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.default,
+  },
+  appBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    minHeight: 56,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appBarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
   scrollView: {
     flex: 1,
   },
@@ -476,7 +525,7 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     paddingBottom: spacing[8],
   },
-  header: {
+  headerInfo: {
     marginBottom: spacing[6],
   },
   title: {
