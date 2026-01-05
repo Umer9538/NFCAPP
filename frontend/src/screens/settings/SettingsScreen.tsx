@@ -1,9 +1,9 @@
 /**
  * Settings Screen
- * Main settings screen with grouped sections for account management
+ * Simplified settings screen with working features only
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,53 +11,20 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  Image,
-  Linking,
-  Switch,
 } from 'react-native';
-import { useNavigation, CommonActions } from '@react-navigation/native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppScreenNavigationProp } from '@/navigation/types';
 
-import { Card, LoadingSpinner, Toast, useToast, Avatar } from '@/components/ui';
-import { settingsApi } from '@/api/settings';
+import { Card, Avatar } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
-import type { NotificationSettings } from '@/types/settings';
-import { PRIMARY, SEMANTIC, STATUS } from '@/constants/colors';
+import { PRIMARY, SEMANTIC, STATUS, GRAY } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
   const { user, logout } = useAuth();
-  const queryClient = useQueryClient();
-  const { toastConfig, hideToast, success, error: showError } = useToast();
-
-  // Fetch notification settings
-  const { data: notificationSettings, isLoading } = useQuery({
-    queryKey: ['notificationSettings'],
-    queryFn: settingsApi.getNotificationSettings,
-    placeholderData: getMockNotificationSettings(),
-  });
-
-  // Update notification setting mutation
-  const updateNotificationMutation = useMutation({
-    mutationFn: (settings: Partial<NotificationSettings>) =>
-      settingsApi.updateNotificationSettings(settings),
-    onSuccess: () => {
-      success('Settings updated');
-      queryClient.invalidateQueries({ queryKey: ['notificationSettings'] });
-    },
-    onError: () => {
-      showError('Failed to update settings');
-    },
-  });
-
-  const handleToggleNotification = (key: keyof NotificationSettings, value: boolean) => {
-    updateNotificationMutation.mutate({ [key]: value });
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -74,78 +41,8 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // Navigate to delete account confirmation screen
-            Alert.alert('Delete Account', 'This feature will be implemented soon.');
-          },
-        },
-      ]
-    );
-  };
-
-  const handleClearCache = () => {
-    Alert.alert(
-      'Clear Cache',
-      'Are you sure you want to clear the app cache?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          onPress: async () => {
-            try {
-              await settingsApi.clearCache();
-              success('Cache cleared');
-            } catch (err) {
-              showError('Failed to clear cache');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleDownloadData = async () => {
-    Alert.alert('Download Data', 'This feature will be implemented soon.');
-  };
-
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will show the onboarding screens again on next app launch. The app will restart.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('@medguard_onboarding_completed');
-              await logout();
-              success('Onboarding reset. Please restart the app.');
-            } catch (err) {
-              showError('Failed to reset onboarding');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const appVersion = Application.nativeApplicationVersion || '1.0.0';
   const buildNumber = Application.nativeBuildVersion || '1';
-
-  if (isLoading) {
-    return <LoadingSpinner visible text="Loading settings..." />;
-  }
 
   return (
     <View style={styles.container}>
@@ -153,142 +50,50 @@ export default function SettingsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
       >
+        {/* Profile Card */}
+        <Card variant="outlined" style={styles.profileCard}>
+          <Pressable
+            style={styles.profileRow}
+            onPress={() => navigation.navigate('EditProfile' as any)}
+          >
+            <Avatar
+              size="lg"
+              initials={`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`}
+            />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>
+                {user?.firstName} {user?.lastName}
+              </Text>
+              <Text style={styles.profileEmail}>{user?.email}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={GRAY[400]} />
+          </Pressable>
+        </Card>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
 
-          <Card variant="outline" padding="none">
-            {/* Profile Picture */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => navigation.navigate('EditProfile' as any)}
-            >
-              <View style={styles.settingLeft}>
-                <Avatar
-                  size="md"
-                  initials={`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`}
-                  imageUri={user?.profilePicture}
-                />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Profile Picture</Text>
-                  <Text style={styles.settingValue}>Tap to change</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            {/* Full Name */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => navigation.navigate('EditProfile' as any)}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="person-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Full Name</Text>
-                  <Text style={styles.settingValue}>
-                    {user?.firstName} {user?.lastName}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            {/* Email */}
-            <Pressable
-              style={styles.settingItem}
+          <Card variant="outlined" padding="none">
+            <SettingItem
+              icon="person-outline"
+              label="Account Settings"
+              description="Email, phone, personal info"
               onPress={() => navigation.navigate('AccountSettings')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="mail-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Email</Text>
-                  <Text style={styles.settingValue}>{user?.email}</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
+            />
             <View style={styles.divider} />
-
-            {/* Phone */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => navigation.navigate('AccountSettings')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="call-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Phone Number</Text>
-                  <Text style={styles.settingValue}>
-                    {user?.phone || 'Not set'}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-          </Card>
-        </View>
-
-        {/* Security Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
-
-          <Card variant="outline" padding="none">
-            {/* Change Password */}
-            <Pressable
-              style={styles.settingItem}
+            <SettingItem
+              icon="lock-closed-outline"
+              label="Change Password"
               onPress={() => navigation.navigate('ChangePassword')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="lock-closed-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Change Password</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
+            />
             <View style={styles.divider} />
-
-            {/* Two-Factor Authentication */}
-            <Pressable
-              style={styles.settingItem}
+            <SettingItem
+              icon="shield-checkmark-outline"
+              label="Security"
+              description="2FA, active sessions"
               onPress={() => navigation.navigate('SecuritySettings')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="shield-checkmark-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Two-Factor Authentication</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            {/* Biometric Login */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="finger-print-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Biometric Login</Text>
-              </View>
-              <Switch value={false} onValueChange={() => {}} />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Active Sessions */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => navigation.navigate('SecuritySettings')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="phone-portrait-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Active Sessions</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
+            />
           </Card>
         </View>
 
@@ -296,166 +101,67 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notifications</Text>
 
-          <Card variant="outline" padding="none">
-            {/* Profile Access Alerts */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="eye-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Profile Access Alerts</Text>
-                  <Text style={styles.settingDescription}>
-                    Get notified when your profile is accessed
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationSettings?.profileAccessAlerts || false}
-                onValueChange={(value) =>
-                  handleToggleNotification('profileAccessAlerts', value)
-                }
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Health Reminders */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="medical-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Health Reminders</Text>
-                  <Text style={styles.settingDescription}>
-                    Medication and appointment reminders
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationSettings?.healthReminders || false}
-                onValueChange={(value) =>
-                  handleToggleNotification('healthReminders', value)
-                }
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Subscription Updates */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="card-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Subscription Updates</Text>
-                  <Text style={styles.settingDescription}>
-                    Billing and subscription notifications
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationSettings?.subscriptionUpdates || false}
-                onValueChange={(value) =>
-                  handleToggleNotification('subscriptionUpdates', value)
-                }
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Security Alerts */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="alert-circle-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Security Alerts</Text>
-                  <Text style={styles.settingDescription}>
-                    Login attempts and security warnings
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationSettings?.securityAlerts || false}
-                onValueChange={(value) =>
-                  handleToggleNotification('securityAlerts', value)
-                }
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Marketing Emails */}
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="mail-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>Marketing Emails</Text>
-                  <Text style={styles.settingDescription}>
-                    Product updates and newsletters
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationSettings?.marketingEmails || false}
-                onValueChange={(value) =>
-                  handleToggleNotification('marketingEmails', value)
-                }
-              />
-            </View>
+          <Card variant="outlined" padding="none">
+            <SettingItem
+              icon="notifications-outline"
+              label="Notification Preferences"
+              description="Manage your notification settings"
+              onPress={() => navigation.navigate('NotificationSettings')}
+            />
           </Card>
         </View>
 
-        {/* Privacy Section */}
+        {/* Medical Data Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy</Text>
+          <Text style={styles.sectionTitle}>Medical Data</Text>
 
-          <Card variant="outline" padding="none">
-            {/* Download My Data */}
-            <Pressable style={styles.settingItem} onPress={handleDownloadData}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="download-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Download My Data</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
+          <Card variant="outlined" padding="none">
+            <SettingItem
+              icon="time-outline"
+              label="Access History"
+              description="View who accessed your profile"
+              onPress={() => navigation.navigate('AuditLogs')}
+            />
             <View style={styles.divider} />
+            <SettingItem
+              icon="document-text-outline"
+              label="Scan History"
+              description="View bracelet scan logs"
+              onPress={() => navigation.navigate('ScanHistory')}
+            />
+          </Card>
+        </View>
 
-            {/* Privacy Policy */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => Linking.openURL('https://medguard.com/privacy')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="document-text-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Privacy Policy</Text>
-              </View>
-              <Ionicons name="open-outline" size={18} color={SEMANTIC.text.tertiary} />
-            </Pressable>
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subscription</Text>
 
+          <Card variant="outlined" padding="none">
+            <SettingItem
+              icon="card-outline"
+              label="Manage Subscription"
+              description="View plan and billing"
+              onPress={() => navigation.navigate('Subscription')}
+            />
+          </Card>
+        </View>
+
+        {/* Support Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Support</Text>
+
+          <Card variant="outlined" padding="none">
+            <SettingItem
+              icon="help-circle-outline"
+              label="Help Center"
+              onPress={() => navigation.navigate('Help')}
+            />
             <View style={styles.divider} />
-
-            {/* Terms of Service */}
-            <Pressable
-              style={styles.settingItem}
-              onPress={() => Linking.openURL('https://medguard.com/terms')}
-            >
-              <View style={styles.settingLeft}>
-                <Ionicons name="document-text-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Terms of Service</Text>
-              </View>
-              <Ionicons name="open-outline" size={18} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            {/* Delete Account */}
-            <Pressable style={styles.settingItem} onPress={handleDeleteAccount}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="trash-outline" size={20} color={STATUS.error} />
-                <Text style={[styles.settingLabel, { color: STATUS.error }]}>
-                  Delete Account
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
+            <SettingItem
+              icon="information-circle-outline"
+              label="About"
+              onPress={() => navigation.navigate('About')}
+            />
           </Card>
         </View>
 
@@ -463,135 +169,134 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App</Text>
 
-          <Card variant="outline" padding="none">
-            {/* App Version */}
+          <Card variant="outlined" padding="none">
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
-                <Ionicons name="information-circle-outline" size={20} color={PRIMARY[600]} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingLabel}>App Version</Text>
-                  <Text style={styles.settingValue}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="phone-portrait-outline" size={20} color={PRIMARY[600]} />
+                </View>
+                <View>
+                  <Text style={styles.settingLabel}>Version</Text>
+                  <Text style={styles.settingDescription}>
                     {appVersion} ({buildNumber})
                   </Text>
                 </View>
               </View>
             </View>
-
-            <View style={styles.divider} />
-
-            {/* Clear Cache */}
-            <Pressable style={styles.settingItem} onPress={handleClearCache}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="trash-bin-outline" size={20} color={PRIMARY[600]} />
-                <Text style={styles.settingLabel}>Clear Cache</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
-
-            <View style={styles.divider} />
-
-            {/* Logout */}
-            <Pressable style={styles.settingItem} onPress={handleLogout}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="log-out-outline" size={20} color={STATUS.error} />
-                <Text style={[styles.settingLabel, { color: STATUS.error }]}>
-                  Logout
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-            </Pressable>
           </Card>
         </View>
 
-        {/* Developer Section */}
-        {__DEV__ && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Developer Options</Text>
+        {/* Logout */}
+        <Card variant="outlined" padding="none" style={styles.logoutCard}>
+          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color={STATUS.error.main} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </Pressable>
+        </Card>
 
-            <Card variant="outline" padding="none">
-              {/* Reset Onboarding */}
-              <Pressable style={styles.settingItem} onPress={handleResetOnboarding}>
-                <View style={styles.settingLeft}>
-                  <Ionicons name="refresh-outline" size={20} color="#f59e0b" />
-                  <View style={styles.settingText}>
-                    <Text style={styles.settingLabel}>Reset Onboarding</Text>
-                    <Text style={styles.settingDescription}>
-                      Show onboarding screens again
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={SEMANTIC.text.tertiary} />
-              </Pressable>
-            </Card>
-          </View>
-        )}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      <Toast {...toastConfig} onDismiss={hideToast} />
     </View>
   );
 }
 
-function getMockNotificationSettings(): NotificationSettings {
-  return {
-    profileAccessAlerts: true,
-    healthReminders: true,
-    subscriptionUpdates: true,
-    securityAlerts: true,
-    marketingEmails: false,
-    pushNotifications: true,
-    emailNotifications: true,
-    smsNotifications: false,
-  };
+// Reusable Setting Item Component
+interface SettingItemProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  description?: string;
+  onPress: () => void;
+}
+
+function SettingItem({ icon, label, description, onPress }: SettingItemProps) {
+  return (
+    <Pressable style={styles.settingItem} onPress={onPress}>
+      <View style={styles.settingLeft}>
+        <View style={styles.iconContainer}>
+          <Ionicons name={icon} size={20} color={PRIMARY[600]} />
+        </View>
+        <View>
+          <Text style={styles.settingLabel}>{label}</Text>
+          {description && (
+            <Text style={styles.settingDescription}>{description}</Text>
+          )}
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={GRAY[400]} />
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SEMANTIC.background.default,
+    backgroundColor: SEMANTIC.background.secondary,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: spacing[4],
-    paddingBottom: spacing[8],
+  },
+  profileCard: {
+    marginBottom: spacing[6],
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing[4],
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: spacing[4],
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: SEMANTIC.text.secondary,
+    marginTop: 2,
   },
   section: {
     marginBottom: spacing[6],
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[3],
-    paddingHorizontal: spacing[2],
+    color: SEMANTIC.text.secondary,
+    marginBottom: spacing[2],
+    marginLeft: spacing[1],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing[4],
-    minHeight: 60,
+    minHeight: 56,
   },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
     flex: 1,
   },
-  settingText: {
-    flex: 1,
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: PRIMARY[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing[3],
   },
   settingLabel: {
     fontSize: 16,
     fontWeight: '500',
     color: SEMANTIC.text.primary,
-    marginBottom: 2,
-  },
-  settingValue: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
   },
   settingDescription: {
     fontSize: 13,
@@ -600,7 +305,25 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: SEMANTIC.border.default,
-    marginLeft: spacing[4] + 20 + spacing[3],
+    backgroundColor: SEMANTIC.border.light,
+    marginLeft: spacing[4] + 36 + spacing[3],
+  },
+  logoutCard: {
+    marginBottom: spacing[4],
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing[4],
+    gap: spacing[2],
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: STATUS.error.main,
+  },
+  bottomSpacer: {
+    height: spacing[8],
   },
 });

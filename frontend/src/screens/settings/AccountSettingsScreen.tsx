@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,6 +48,7 @@ const OTP_LENGTH = 6;
 
 export default function AccountSettingsScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { toastConfig, hideToast, success, error: showError } = useToast();
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const setUser = useAuthStore((state) => state.setUser);
@@ -288,12 +290,14 @@ export default function AccountSettingsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Account Settings</Text>
-        <View style={styles.backButton} />
+      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Account Settings</Text>
+          <View style={styles.backButton} />
+        </View>
       </View>
 
       <ScrollView
@@ -537,14 +541,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SEMANTIC.background.default,
   },
+  headerWrapper: {
+    backgroundColor: SEMANTIC.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.default,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.default,
+    minHeight: 56,
   },
   backButton: {
     width: 40,

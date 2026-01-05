@@ -11,8 +11,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
@@ -42,6 +44,7 @@ const passwordSchema = z.object({
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { toastConfig, hideToast, success, error: showError } = useToast();
 
   const [formData, setFormData] = useState<PasswordChangeInput>({
@@ -84,23 +87,21 @@ export default function ChangePasswordScreen() {
 
   const validateField = (field: keyof PasswordChangeInput) => {
     try {
-      if (field === 'confirmPassword') {
-        // Validate both new password and confirm password together
-        passwordSchema.parse(formData);
-        setErrors((prev) => ({ ...prev, newPassword: undefined, confirmPassword: undefined }));
-      } else {
-        const fieldSchema = passwordSchema.shape[field];
-        if (fieldSchema) {
-          fieldSchema.parse(formData[field]);
-          setErrors((prev) => ({ ...prev, [field]: undefined }));
-        }
-      }
+      // Validate the full form since we have refinements
+      passwordSchema.parse(formData);
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     } catch (error) {
       if (error instanceof z.ZodError) {
-        setErrors((prev) => ({
-          ...prev,
-          [field]: error.errors[0]?.message,
-        }));
+        // Find error for this specific field
+        const fieldError = error.errors.find(e => e.path[0] === field);
+        if (fieldError) {
+          setErrors((prev) => ({
+            ...prev,
+            [field]: fieldError.message,
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, [field]: undefined }));
+        }
       }
     }
   };
@@ -161,26 +162,38 @@ export default function ChangePasswordScreen() {
   const passwordStrength = getPasswordStrength(formData.newPassword);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header Info */}
-        <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="lock-closed" size={32} color={PRIMARY[600]} />
-          </View>
-          <Text style={styles.title}>Change Password</Text>
-          <Text style={styles.subtitle}>
-            Choose a strong password to keep your account secure
-          </Text>
+    <View style={styles.container}>
+      {/* App Bar */}
+      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+        <View style={styles.appBar}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+          </Pressable>
+          <Text style={styles.appBarTitle}>Change Password</Text>
+          <View style={styles.backButton} />
         </View>
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header Info */}
+          <View style={styles.headerInfo}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="lock-closed" size={32} color={PRIMARY[600]} />
+            </View>
+            <Text style={styles.title}>Change Password</Text>
+            <Text style={styles.subtitle}>
+              Choose a strong password to keep your account secure
+            </Text>
+          </View>
 
         {/* Form */}
         <View style={styles.form}>
@@ -290,22 +303,25 @@ export default function ChangePasswordScreen() {
         {/* Actions */}
         <View style={styles.actions}>
           <Button
-            title="Change Password"
             onPress={handleSubmit}
             loading={changePasswordMutation.isPending}
             disabled={changePasswordMutation.isPending}
-          />
+          >
+            Change Password
+          </Button>
           <Button
-            title="Cancel"
             variant="outline"
             onPress={() => navigation.goBack()}
             disabled={changePasswordMutation.isPending}
-          />
+          >
+            Cancel
+          </Button>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Toast {...toastConfig} onDismiss={hideToast} />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -314,6 +330,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SEMANTIC.background.default,
   },
+  headerWrapper: {
+    backgroundColor: SEMANTIC.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.default,
+  },
+  appBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    minHeight: 56,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appBarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
+  keyboardView: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -321,9 +364,10 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     paddingBottom: spacing[8],
   },
-  header: {
+  headerInfo: {
     alignItems: 'center',
     marginBottom: spacing[6],
+    marginTop: spacing[4],
   },
   iconCircle: {
     width: 80,
@@ -366,7 +410,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   requirements: {
-    backgroundColor: SEMANTIC.background.surface,
+    backgroundColor: SEMANTIC.background.secondary,
     padding: spacing[4],
     borderRadius: 12,
     borderWidth: 1,

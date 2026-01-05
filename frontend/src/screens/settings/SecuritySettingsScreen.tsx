@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import type { SettingsScreenNavigationProp } from '@/navigation/types';
+import type { AppScreenNavigationProp } from '@/navigation/types';
 
 import { Header, ConfirmDialog } from '@/components/shared';
 import { Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
@@ -28,7 +28,8 @@ import {
   getBiometricIcon,
   type BiometricType,
 } from '@/services/biometricService';
-import { getToken, getSecureUserEmail } from '@/utils/storage';
+import { getToken } from '@/utils/storage';
+import { useAuthStore } from '@/store/authStore';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 
@@ -44,8 +45,9 @@ interface SecurityOption {
 }
 
 export default function SecuritySettingsScreen() {
-  const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const navigation = useNavigation<AppScreenNavigationProp>();
   const { toastConfig, hideToast, success, error: showError } = useToast();
+  const user = useAuthStore((state) => state.user);
 
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -113,7 +115,7 @@ export default function SecuritySettingsScreen() {
 
       // Get current auth token and email
       const token = await getToken();
-      const email = await getSecureUserEmail();
+      const email = user?.email;
 
       if (!token || !email) {
         showError('Please log in again to enable biometric authentication');
@@ -156,7 +158,7 @@ export default function SecuritySettingsScreen() {
   const handleToggleTwoFactor = async (value: boolean) => {
     if (value) {
       // Navigate to 2FA setup screen
-      navigation.navigate('TwoFactorSetup');
+      navigation.navigate('Enable2FA');
     } else {
       // Show confirmation
       Alert.alert(
@@ -396,8 +398,8 @@ export default function SecuritySettingsScreen() {
         message={`You will need to enter your password to sign in. You can re-enable ${getBiometricDisplayName(
           biometricType
         )} at any time.`}
-        confirmText="Disable"
-        confirmVariant="danger"
+        confirmLabel="Disable"
+        destructive
         onConfirm={handleDisableBiometric}
         onCancel={() => setShowDisableDialog(false)}
       />
