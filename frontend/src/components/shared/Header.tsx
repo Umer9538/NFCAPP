@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
@@ -33,6 +34,7 @@ export function Header({
   actions,
 }: HeaderProps) {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -43,57 +45,62 @@ export function Header({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.leftSection}>
-        {showBackButton && (
-          <Pressable onPress={handleBackPress} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
-          </Pressable>
-        )}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {actions && actions.length > 0 && (
-        <View style={styles.actions}>
-          {actions.map((action, index) => (
-            <Pressable
-              key={index}
-              onPress={action.onPress}
-              disabled={action.disabled}
-              style={[styles.actionButton, action.disabled && styles.actionButtonDisabled]}
-            >
-              <Ionicons
-                name={action.icon}
-                size={24}
-                color={action.color || PRIMARY[600]}
-              />
+    <View style={[styles.wrapper, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
+        <View style={styles.leftSection}>
+          {showBackButton && (
+            <Pressable onPress={handleBackPress} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
             </Pressable>
-          ))}
+          )}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            {subtitle && (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
+          </View>
         </View>
-      )}
+
+        {actions && actions.length > 0 && (
+          <View style={styles.actions}>
+            {actions.map((action, index) => (
+              <Pressable
+                key={index}
+                onPress={action.onPress}
+                disabled={action.disabled}
+                style={[styles.actionButton, action.disabled && styles.actionButtonDisabled]}
+              >
+                <Ionicons
+                  name={action.icon}
+                  size={24}
+                  color={action.color || PRIMARY[600]}
+                />
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    backgroundColor: SEMANTIC.background.default,
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.default,
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
-    backgroundColor: SEMANTIC.background.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.default,
+    minHeight: 56,
   },
   leftSection: {
     flexDirection: 'row',
