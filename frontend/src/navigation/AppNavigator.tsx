@@ -60,6 +60,7 @@ import BillingHistoryScreen from '@/screens/subscription/BillingHistoryScreen';
 
 // Support
 import HelpScreen from '@/screens/support/HelpScreen';
+import FAQScreen from '@/screens/support/FAQScreen';
 import AboutScreen from '@/screens/support/AboutScreen';
 import TermsOfServiceScreen from '@/screens/support/TermsOfServiceScreen';
 import PrivacyPolicyScreen from '@/screens/support/PrivacyPolicyScreen';
@@ -408,6 +409,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Help"
         component={HelpScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="FAQ"
+        component={FAQScreen}
         options={{
           headerShown: false,
         }}
