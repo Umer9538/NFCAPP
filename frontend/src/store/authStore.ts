@@ -27,6 +27,196 @@ const SECURE_KEYS = {
 };
 
 /**
+ * Mock login credentials for development/testing
+ * Returns LoginResponse if credentials match, null otherwise
+ */
+function getMockLoginResponse(email: string, password: string): LoginResponse | null {
+  if (password !== 'Test123!') return null;
+
+  const mockCredentials: Record<string, { user: User; token: string }> = {
+    // Individual user
+    'test@medguard.com': {
+      token: 'mock-token-individual',
+      user: {
+        id: 'mock-user-1',
+        email: 'test@medguard.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        phoneNumber: '+1 (555) 123-4567',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'individual' as AccountType,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Corporate Admin
+    'admin@company.com': {
+      token: 'mock-token-corp-admin',
+      user: {
+        id: 'mock-corp-admin-1',
+        email: 'admin@company.com',
+        firstName: 'Admin',
+        lastName: 'User',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'corporate' as AccountType,
+        organizationId: 'mock-org-corp-1',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Corporate Employee
+    'employee@company.com': {
+      token: 'mock-token-corp-employee',
+      user: {
+        id: 'mock-corp-employee-1',
+        email: 'employee@company.com',
+        firstName: 'Jane',
+        lastName: 'Employee',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'corporate' as AccountType,
+        organizationId: 'mock-org-corp-1',
+        role: 'user',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Construction Admin
+    'admin@construction.com': {
+      token: 'mock-token-const-admin',
+      user: {
+        id: 'mock-const-admin-1',
+        email: 'admin@construction.com',
+        firstName: 'Construction',
+        lastName: 'Admin',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'construction' as AccountType,
+        organizationId: 'mock-org-const-1',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Construction Supervisor
+    'supervisor@construction.com': {
+      token: 'mock-token-const-supervisor',
+      user: {
+        id: 'mock-const-supervisor-1',
+        email: 'supervisor@construction.com',
+        firstName: 'Bob',
+        lastName: 'Supervisor',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'construction' as AccountType,
+        organizationId: 'mock-org-const-1',
+        role: 'supervisor',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Construction Worker
+    'worker@construction.com': {
+      token: 'mock-token-const-worker',
+      user: {
+        id: 'mock-const-worker-1',
+        email: 'worker@construction.com',
+        firstName: 'Mike',
+        lastName: 'Builder',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'construction' as AccountType,
+        organizationId: 'mock-org-const-1',
+        role: 'worker',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Education Admin
+    'admin@school.edu': {
+      token: 'mock-token-edu-admin',
+      user: {
+        id: 'mock-edu-admin-1',
+        email: 'admin@school.edu',
+        firstName: 'Principal',
+        lastName: 'Smith',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'education' as AccountType,
+        organizationId: 'mock-org-edu-1',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Education Teacher
+    'teacher@school.edu': {
+      token: 'mock-token-edu-teacher',
+      user: {
+        id: 'mock-edu-teacher-1',
+        email: 'teacher@school.edu',
+        firstName: 'Jane',
+        lastName: 'Teacher',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'education' as AccountType,
+        organizationId: 'mock-org-edu-1',
+        role: 'teacher',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Education Parent
+    'parent@family.com': {
+      token: 'mock-token-edu-parent',
+      user: {
+        id: 'mock-edu-parent-1',
+        email: 'parent@family.com',
+        firstName: 'Mary',
+        lastName: 'Parent',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'education' as AccountType,
+        organizationId: 'mock-org-edu-1',
+        role: 'parent',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // Education Student
+    'student@school.edu': {
+      token: 'mock-token-edu-student',
+      user: {
+        id: 'mock-edu-student-1',
+        email: 'student@school.edu',
+        firstName: 'Tommy',
+        lastName: 'Student',
+        emailVerified: true,
+        twoFactorEnabled: false,
+        accountType: 'education' as AccountType,
+        organizationId: 'mock-org-edu-1',
+        role: 'student',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    },
+  };
+
+  const credential = mockCredentials[email.toLowerCase()];
+  if (!credential) return null;
+
+  return {
+    token: credential.token,
+    refreshToken: `${credential.token}-refresh`,
+    user: credential.user,
+    requiresTwoFactor: false,
+  };
+}
+
+/**
  * Initial state
  */
 const initialState = {
@@ -186,6 +376,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   login: async (email: string, password: string): Promise<LoginResponse> => {
     set({ isLoading: true, error: null });
 
+    // DEVELOPMENT MODE: Check for mock credentials FIRST to avoid API timeout
+    const mockResponse = getMockLoginResponse(email, password);
+    if (mockResponse) {
+      console.log('🔐 Using mock login for:', email);
+      await get().setTokens(mockResponse.token, mockResponse.refreshToken);
+      get().setUser(mockResponse.user);
+      set({ isLoading: false });
+      return mockResponse;
+    }
+
     try {
       const response = await authApi.login({ email, password });
 
@@ -202,240 +402,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ isLoading: false });
       return response;
     } catch (error: any) {
-      console.log('🔐 Login failed, checking for test credentials...', { email });
-
-      // DEVELOPMENT MODE: Allow login with test credentials even if API fails
-      if (email === 'test@medguard.com' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-token-123',
-          refreshToken: 'mock-refresh-token-123',
-          user: {
-            id: 'mock-user-1',
-            email: 'test@medguard.com',
-            firstName: 'John',
-            lastName: 'Doe',
-            phoneNumber: '+1 (555) 123-4567',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'individual',
-            organizationId: undefined,
-            role: undefined,
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test corporate user (multiple email aliases)
-      if ((email === 'admin@company.com' || email === 'corp.admin@test.com' || email === 'admin-corp@test.com') && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-corp-token-123',
-          refreshToken: 'mock-corp-refresh-token-123',
-          user: {
-            id: 'mock-corp-admin-1',
-            email: 'admin@company.com',
-            firstName: 'Admin',
-            lastName: 'User',
-            phoneNumber: '+1 (555) 987-6543',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'corporate',
-            organizationId: 'org-123',
-            role: 'admin',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test construction user (multiple email aliases)
-      if ((email === 'worker@construction.com' || email === 'construction-admin@test.com') && password === 'Test123!') {
-        const isAdmin = email.includes('admin');
-        const mockResponse: LoginResponse = {
-          token: 'mock-construction-token-123',
-          refreshToken: 'mock-construction-refresh-token-123',
-          user: {
-            id: 'mock-construction-user-1',
-            email: email,
-            firstName: isAdmin ? 'Construction' : 'Mike',
-            lastName: isAdmin ? 'Admin' : 'Builder',
-            phoneNumber: '+1 (555) 456-7890',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'construction',
-            organizationId: 'construction-org-456',
-            role: isAdmin ? 'admin' : 'user',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test education student
-      if (email === 'student@university.edu' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-edu-token-123',
-          refreshToken: 'mock-edu-refresh-token-123',
-          user: {
-            id: 'mock-edu-user-1',
-            email: 'student@university.edu',
-            firstName: 'Sarah',
-            lastName: 'Student',
-            phoneNumber: '+1 (555) 321-9876',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'education',
-            organizationId: 'edu-org-789',
-            role: 'student',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test construction supervisor
-      if (email === 'supervisor@construction.com' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-supervisor-token-123',
-          refreshToken: 'mock-supervisor-refresh-token-123',
-          user: {
-            id: 'mock-supervisor-1',
-            email: 'supervisor@construction.com',
-            firstName: 'Bob',
-            lastName: 'Supervisor',
-            phoneNumber: '+1 (555) 111-2222',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'construction',
-            organizationId: 'construction-org-456',
-            role: 'supervisor',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test education admin
-      if (email === 'admin@school.edu' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-edu-admin-token-123',
-          refreshToken: 'mock-edu-admin-refresh-token-123',
-          user: {
-            id: 'mock-edu-admin-1',
-            email: 'admin@school.edu',
-            firstName: 'Principal',
-            lastName: 'Smith',
-            phoneNumber: '+1 (555) 333-4444',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'education',
-            organizationId: 'edu-org-789',
-            role: 'admin',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test education teacher
-      if (email === 'teacher@school.edu' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-teacher-token-123',
-          refreshToken: 'mock-teacher-refresh-token-123',
-          user: {
-            id: 'mock-teacher-1',
-            email: 'teacher@school.edu',
-            firstName: 'Jane',
-            lastName: 'Teacher',
-            phoneNumber: '+1 (555) 555-6666',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'education',
-            organizationId: 'edu-org-789',
-            role: 'teacher',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
-
-      // Test education parent
-      if (email === 'parent@family.com' && password === 'Test123!') {
-        const mockResponse: LoginResponse = {
-          token: 'mock-parent-token-123',
-          refreshToken: 'mock-parent-refresh-token-123',
-          user: {
-            id: 'mock-parent-1',
-            email: 'parent@family.com',
-            firstName: 'Mary',
-            lastName: 'Parent',
-            phoneNumber: '+1 (555) 777-8888',
-            emailVerified: true,
-            twoFactorEnabled: false,
-            accountType: 'education',
-            organizationId: 'edu-org-789',
-            role: 'parent',
-            suspended: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          requiresTwoFactor: false,
-        };
-
-        await get().setTokens(mockResponse.token, mockResponse.refreshToken);
-        get().setUser(mockResponse.user);
-        set({ isLoading: false });
-        return mockResponse;
-      }
+      // Note: Mock credentials are checked BEFORE the API call (see above),
+      // so this catch block only handles real API errors for non-mock users
+      console.log('🔐 Login API failed:', { email });
 
       // Extract error message properly
       let errorMessage = 'Login failed. Please try again.';
@@ -449,8 +418,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ isLoading: false, error: errorMessage });
 
       // Throw an error with the message so UI can catch it
-      const loginError = new Error(errorMessage);
-      throw loginError;
+      throw new Error(errorMessage);
     }
   },
 
