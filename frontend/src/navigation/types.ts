@@ -126,6 +126,7 @@ export type AppStackParamList = {
 
   // Support
   Help: undefined;
+  FAQ: undefined;
   About: undefined;
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
