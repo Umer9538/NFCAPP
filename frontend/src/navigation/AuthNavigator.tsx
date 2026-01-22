@@ -17,6 +17,7 @@ import ForgotPasswordScreen from '@/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '@/screens/auth/ResetPasswordScreen';
 import VerifyEmailScreen from '@/screens/auth/VerifyEmailScreen';
 import TwoFactorAuthScreen from '@/screens/auth/TwoFactorAuthScreen';
+import ProfileSetupScreen from '@/screens/onboarding/ProfileSetupScreen';
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -105,6 +106,17 @@ export default function AuthNavigator() {
         options={{
           title: 'Two-Factor Authentication',
           headerShown: true,
+          headerLeft: () => null, // Prevent going back
+          gestureEnabled: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="ProfileSetup"
+        component={ProfileSetupScreen}
+        options={{
+          title: 'Complete Your Profile',
+          headerShown: false,
           headerLeft: () => null, // Prevent going back
           gestureEnabled: false,
         }}

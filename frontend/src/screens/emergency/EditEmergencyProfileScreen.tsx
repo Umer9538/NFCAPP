@@ -87,12 +87,26 @@ export default function EditEmergencyProfileScreen() {
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProfileRequest) => profileApi.updateProfile(data),
     onSuccess: () => {
-      success('Profile updated successfully');
+      success('Your medical profile has been saved successfully.');
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ['medicalProfile'] });
     },
     onError: (err: any) => {
-      showError(err.message || 'Failed to update profile');
+      // Convert technical errors to human-readable messages
+      const errorMessage = err.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to save your changes. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
+        friendlyMessage = 'Unable to connect. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('unauthorized') || errorMessage.includes('401')) {
+        friendlyMessage = 'Your session has expired. Please log in again.';
+      } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+        friendlyMessage = 'Some information appears to be incorrect. Please check your entries and try again.';
+      } else if (errorMessage.includes('timeout')) {
+        friendlyMessage = 'The request took too long. Please try again.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
@@ -116,14 +130,38 @@ export default function EditEmergencyProfileScreen() {
   };
 
   const handleSave = () => {
-    updateMutation.mutate({
-      bloodType: formData.bloodType as any || undefined,
-      height: formData.height ? parseInt(formData.height) : undefined,
-      weight: formData.weight ? parseInt(formData.weight) : undefined,
-      isOrganDonor: formData.isOrganDonor,
-      hasDNR: formData.hasDNR,
-      emergencyNotes: formData.emergencyNotes || undefined,
-    });
+    // Build request body matching backend schema
+    const requestBody = {
+      medicalProfile: {
+        bloodType: (formData.bloodType || 'O+') as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-',
+        height: formData.height ? `${formData.height}cm` : '0cm',
+        weight: formData.weight ? `${formData.weight}kg` : '0kg',
+        isOrganDonor: formData.isOrganDonor,
+        hasDNR: formData.hasDNR,
+        emergencyNotes: formData.emergencyNotes || '',
+        // Include existing allergies, medications, conditions from profile
+        allergies: (profile?.allergies || []).map(a => ({
+          allergen: a.allergen,
+          severity: a.severity,
+          reaction: a.reaction,
+        })),
+        medicalConditions: (profile?.conditions || []).map(c => c.name),
+        medications: (profile?.medications || []).map(m => ({
+          name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+        })),
+      },
+      emergencyContacts: (profile?.emergencyContacts || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        relation: c.relationship,
+        phone: c.phone,
+        email: c.email || '',
+      })),
+    };
+
+    updateMutation.mutate(requestBody);
   };
 
   const navigateToAddItem = (type: 'allergy' | 'medication' | 'condition' | 'contact') => {
@@ -523,7 +561,7 @@ export default function EditEmergencyProfileScreen() {
   };
 
   if (isLoading) {
-    return <LoadingSpinner visible text="Loading profile..." />;
+    return <LoadingSpinner visible text="Loading your medical profile..." />;
   }
 
   return (

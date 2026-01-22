@@ -72,11 +72,11 @@ export default function HomeScreen() {
   const completeReminderMutation = useMutation({
     mutationFn: dashboardApi.completeReminder,
     onSuccess: () => {
-      success('Reminder completed!');
+      success('Great job! Reminder marked as complete.');
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: () => {
-      showError('Failed to complete reminder');
+      showError('Unable to complete reminder. Please try again.');
     },
   });
 

@@ -13,9 +13,14 @@ import {
   RefreshControl,
   TextInput,
   SafeAreaView,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   GraduationCap,
   Plus,
@@ -27,9 +32,12 @@ import {
   Bell,
   BookOpen,
   Building2,
+  X,
+  ArrowLeft,
 } from 'lucide-react-native';
 
-import { LoadingSpinner } from '@/components/ui';
+import { LoadingSpinner, Button, Toast, useToast } from '@/components/ui';
+import { api } from '@/api/client';
 import { organizationsApi, type Student } from '@/api/organizations';
 import { useAuthStore } from '@/store/authStore';
 import { SEMANTIC, STATUS, GRAY } from '@/constants/colors';
@@ -42,8 +50,31 @@ const EDUCATION_PRIMARY = '#16A34A';
 
 type FilterOption = 'all' | 'active' | 'incomplete';
 
+// Add Student form interface
+interface AddStudentForm {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  studentId: string;
+  grade: string;
+  className: string;
+  campus: string;
+}
+
+const initialFormState: AddStudentForm = {
+  fullName: '',
+  email: '',
+  phoneNumber: '',
+  studentId: '',
+  grade: '',
+  className: '',
+  campus: '',
+};
+
 export default function StudentsScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
+  const queryClient = useQueryClient();
+  const { toastConfig, hideToast, success, error: showError } = useToast();
   const userRole = useAuthStore((state) => state.user?.role);
   const userId = useAuthStore((state) => state.user?.id);
 
@@ -62,6 +93,57 @@ export default function StudentsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('');
+
+  // Add Student Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState<AddStudentForm>(initialFormState);
+
+  // Update form field
+  const updateFormField = (field: keyof AddStudentForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData(initialFormState);
+  };
+
+  // Add student mutation
+  const addStudentMutation = useMutation({
+    mutationFn: async (data: AddStudentForm) => {
+      const response = await api.post<any>('/api/organizations/students', {
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber || undefined,
+        studentId: data.studentId || undefined,
+        grade: data.grade || undefined,
+        className: data.className || undefined,
+        campus: data.campus || undefined,
+      });
+      return response;
+    },
+    onSuccess: () => {
+      success('Student added! An invitation email has been sent.');
+      setShowAddModal(false);
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    },
+    onError: (err: any) => {
+      // Provide user-friendly error messages
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('already exists') || msg.includes('already registered')) {
+        showError('A student with this email already exists.');
+      } else if (msg.includes('invalid email')) {
+        showError('Please enter a valid email address.');
+      } else if (msg.includes('permission') || msg.includes('admin')) {
+        showError('Only administrators can add students.');
+      } else if (msg.includes('network') || msg.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to add student. Please try again.');
+      }
+    },
+  });
 
   // Fetch students with role-based filtering
   const {
@@ -207,8 +289,9 @@ export default function StudentsScreen() {
         },
       ];
 
-  // Use mock data if API returns empty
-  const displayStudents = students.length > 0 ? students : mockStudents;
+  // Only use mock data in development when API fails or returns empty
+  // In production, show actual data (even if empty)
+  const displayStudents = __DEV__ && students.length === 0 ? mockStudents : students;
 
   // Calculate stats
   const totalCount = displayStudents.length;
@@ -237,7 +320,31 @@ export default function StudentsScreen() {
   });
 
   const handleAddStudent = () => {
-    navigation.navigate('AddEmployee', { type: 'student' });
+    setShowAddModal(true);
+  };
+
+  const handleSubmitStudent = () => {
+    // Validate required fields
+    if (!formData.fullName.trim()) {
+      Alert.alert('Required', 'Please enter the student\'s full name');
+      return;
+    }
+    if (!formData.email.trim()) {
+      Alert.alert('Required', 'Please enter the student\'s email');
+      return;
+    }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+    addStudentMutation.mutate(formData);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    resetForm();
   };
 
   const handleStudentPress = (student: Student) => {
@@ -539,11 +646,20 @@ export default function StudentsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
         <Text style={styles.headerTitle}>{getTitle()}</Text>
-        {isAdmin && (
+        {isAdmin ? (
           <Pressable onPress={handleAddStudent} style={styles.headerAddButton}>
             <Plus size={24} color={EDUCATION_PRIMARY} />
           </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
@@ -582,6 +698,156 @@ export default function StudentsScreen() {
           <UserPlus size={24} color="#fff" />
         </Pressable>
       )}
+
+      {/* Add Student Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Student</Text>
+              <Pressable onPress={handleCloseModal} style={styles.modalCloseButton}>
+                <X size={24} color={GRAY[500]} />
+              </Pressable>
+            </View>
+
+            <View style={styles.modalDivider} />
+
+            {/* Modal Content */}
+            <ScrollView
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Full Name & Email Row */}
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>
+                    Full Name <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="Enter full name"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.fullName}
+                    onChangeText={(text) => updateFormField('fullName', text)}
+                    autoCapitalize="words"
+                  />
+                </View>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>
+                    Email <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="student@school.edu"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.email}
+                    onChangeText={(text) => updateFormField('email', text)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
+
+              {/* Phone Number & Student ID Row */}
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>Phone Number</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="+1 (555) 123-4567"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.phoneNumber}
+                    onChangeText={(text) => updateFormField('phoneNumber', text)}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>Student ID</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., STU-001"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.studentId}
+                    onChangeText={(text) => updateFormField('studentId', text)}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              </View>
+
+              {/* Grade, Class, Campus Row */}
+              <View style={styles.formRowThree}>
+                <View style={styles.formFieldThird}>
+                  <Text style={styles.formLabel}>Grade</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., Grade 5"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.grade}
+                    onChangeText={(text) => updateFormField('grade', text)}
+                  />
+                </View>
+                <View style={styles.formFieldThird}>
+                  <Text style={styles.formLabel}>Class</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., 5A"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.className}
+                    onChangeText={(text) => updateFormField('className', text)}
+                  />
+                </View>
+                <View style={styles.formFieldThird}>
+                  <Text style={styles.formLabel}>Campus</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., Main Campus"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.campus}
+                    onChangeText={(text) => updateFormField('campus', text)}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalDivider} />
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <Pressable onPress={handleCloseModal} style={styles.cancelButton}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSubmitStudent}
+                style={[
+                  styles.submitButton,
+                  addStudentMutation.isPending && styles.submitButtonDisabled,
+                ]}
+                disabled={addStudentMutation.isPending}
+              >
+                {addStudentMutation.isPending ? (
+                  <Text style={styles.submitButtonText}>Adding...</Text>
+                ) : (
+                  <Text style={styles.submitButtonText}>Add Student</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Toast */}
+      <Toast {...toastConfig} onDismiss={hideToast} />
     </SafeAreaView>
   );
 }
@@ -601,13 +867,26 @@ const styles = StyleSheet.create({
     borderBottomColor: SEMANTIC.border.light,
     backgroundColor: '#fff',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: SEMANTIC.text.primary,
   },
   headerAddButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -891,5 +1170,112 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing[4],
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing[4],
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing[1],
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: SEMANTIC.border.light,
+  },
+  modalContent: {
+    padding: spacing[4],
+    maxHeight: 400,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginBottom: spacing[4],
+  },
+  formRowThree: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginBottom: spacing[4],
+  },
+  formFieldHalf: {
+    flex: 1,
+  },
+  formFieldThird: {
+    flex: 1,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: SEMANTIC.text.primary,
+    marginBottom: spacing[2],
+  },
+  requiredStar: {
+    color: '#EF4444',
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: SEMANTIC.border.default,
+    borderRadius: 8,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+    fontSize: 15,
+    color: SEMANTIC.text.primary,
+    backgroundColor: '#fff',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    padding: spacing[4],
+    gap: spacing[3],
+  },
+  cancelButton: {
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: SEMANTIC.text.secondary,
+  },
+  submitButton: {
+    backgroundColor: EDUCATION_PRIMARY,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],
+    borderRadius: 8,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

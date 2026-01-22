@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, Pressable, Platform, StatusBar } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft } from 'lucide-react-native';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 
@@ -49,8 +50,12 @@ export function Header({
       <View style={styles.container}>
         <View style={styles.leftSection}>
           {showBackButton && (
-            <Pressable onPress={handleBackPress} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+            <Pressable
+              onPress={handleBackPress}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ArrowLeft size={24} color={SEMANTIC.text.primary} />
             </Pressable>
           )}
           <View style={styles.titleContainer}>
@@ -108,7 +113,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing[2],
   },
   titleContainer: {

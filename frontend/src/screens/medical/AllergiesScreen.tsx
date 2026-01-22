@@ -68,10 +68,17 @@ export default function AllergiesScreen() {
     mutationFn: (allergyId: string) => profileApi.removeAllergy(allergyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      success('Allergy removed successfully');
+      success('Removed from your profile.');
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to remove allergy');
+      const message = error.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else if (message.includes('not found')) {
+        showError('This allergy was not found in your profile.');
+      } else {
+        showError('Unable to remove allergy. Please try again.');
+      }
     },
   });
 

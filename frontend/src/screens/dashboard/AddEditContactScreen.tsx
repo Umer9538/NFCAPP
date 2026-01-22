@@ -12,7 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  SafeAreaView,
+  Pressable,
 } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,12 +82,12 @@ export default function AddEditContactScreen() {
   const addContactMutation = useMutation({
     mutationFn: contactsApi.addEmergencyContact,
     onSuccess: () => {
-      success('Contact added successfully');
+      success('Contact has been added to your emergency list.');
       queryClient.invalidateQueries({ queryKey: ['emergencyContacts'] });
       navigation.goBack();
     },
     onError: () => {
-      showError('Failed to add contact');
+      showError('Unable to add contact. Please try again.');
     },
   });
 
@@ -93,12 +96,12 @@ export default function AddEditContactScreen() {
     mutationFn: (data: { id: string; updates: Partial<EmergencyContactInput> }) =>
       contactsApi.updateEmergencyContact(data.id, data.updates),
     onSuccess: () => {
-      success('Contact updated successfully');
+      success('Contact information has been updated.');
       queryClient.invalidateQueries({ queryKey: ['emergencyContacts'] });
       navigation.goBack();
     },
     onError: () => {
-      showError('Failed to update contact');
+      showError('Unable to update contact. Please try again.');
     },
   });
 
@@ -162,7 +165,7 @@ export default function AddEditContactScreen() {
 
   const handleSubmit = () => {
     if (!validateForm()) {
-      showError('Please fix the errors in the form');
+      showError('Please check the form and correct any errors.');
       return;
     }
 
@@ -187,18 +190,32 @@ export default function AddEditContactScreen() {
   const isLoading = addContactMutation.isPending || updateContactMutation.isPending;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      {/* Navigation Header */}
+      <View style={styles.navHeader}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
+        <Text style={styles.navTitle}>{isEditing ? 'Edit Contact' : 'Add Contact'}</Text>
+        <View style={styles.navSpacer} />
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {/* Header Info */}
-        <View style={styles.header}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header Info */}
+          <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Ionicons name="person-add" size={32} color={PRIMARY[600]} />
           </View>
@@ -296,12 +313,42 @@ export default function AddEditContactScreen() {
         </View>
       </ScrollView>
 
-      <Toast {...toastConfig} onDismiss={hideToast} />
-    </KeyboardAvoidingView>
+        <Toast {...toastConfig} onDismiss={hideToast} />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  navHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.light,
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  navSpacer: {
+    width: 40,
+  },
   container: {
     flex: 1,
     backgroundColor: SEMANTIC.background.default,

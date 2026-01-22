@@ -78,11 +78,22 @@ export default function OrganizationDashboardScreen() {
   const completeReminderMutation = useMutation({
     mutationFn: dashboardApi.completeReminder,
     onSuccess: () => {
-      success('Reminder completed!');
+      success('Reminder marked as complete!');
       queryClient.invalidateQueries({ queryKey: ['orgDashboard'] });
     },
-    onError: () => {
-      showError('Failed to complete reminder');
+    onError: (error: any) => {
+      const message = error?.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to complete reminder. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to do this.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('not found')) {
+        friendlyMessage = 'This reminder was not found. Please refresh and try again.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
@@ -109,9 +120,19 @@ export default function OrganizationDashboardScreen() {
     return 'Good Evening';
   };
 
-  const profileProgress = stats?.profileCompleteness?.percentage || 80;
+  // Get real profile completion from API
+  // Backend returns: stats.profileStatus.percentage
+  const profileProgress = stats?.profileStatus?.percentage ?? 0;
   const isProfileComplete = profileProgress === 100;
-  const isBraceletLinked = stats?.braceletStatus?.isActive;
+
+  // Backend returns: stats.braceletStatus.value ('Linked' or 'Not Linked')
+  const isBraceletLinked = stats?.braceletStatus?.value === 'Linked';
+
+  // Backend returns: stats.profileAccess.value (total count as string)
+  const accessCount = parseInt(stats?.profileAccess?.value || '0', 10);
+
+  // Backend returns: stats.subscriptionStatus.value (plan name)
+  const subscriptionPlan = stats?.subscriptionStatus?.value || 'Free Plan';
 
   return (
     <ScrollView
@@ -135,7 +156,10 @@ export default function OrganizationDashboardScreen() {
               <Text style={styles.greeting}>{getGreeting()},</Text>
               <Text style={styles.userName}>{firstName}!</Text>
             </View>
-            <Pressable style={styles.notificationBtn}>
+            <Pressable
+              style={styles.notificationBtn}
+              onPress={() => (navigation as any).navigate('Notifications')}
+            >
               <Bell size={22} color="#fff" />
               <View style={[styles.notificationDot, { borderColor: primaryColor[500] }]} />
             </Pressable>
@@ -232,10 +256,10 @@ export default function OrganizationDashboardScreen() {
               <Eye size={22} color="#ef4444" />
             </View>
             <View style={styles.statContent}>
-              <Text style={styles.statLabel}>Accesses</Text>
-              <Text style={styles.statValue}>{stats?.recentAccesses?.count || 0}</Text>
+              <Text style={styles.statLabel}>Access</Text>
+              <Text style={styles.statSubLabel}>This month</Text>
+              <Text style={styles.statValue}>{accessCount}</Text>
             </View>
-            <Text style={styles.statSubLabel}>This month</Text>
           </Pressable>
 
           {/* Subscription Card */}
@@ -248,9 +272,9 @@ export default function OrganizationDashboardScreen() {
             </View>
             <View style={styles.statContent}>
               <Text style={styles.statLabel}>Plan</Text>
-              <Text style={styles.statValue}>{stats?.subscription?.plan || 'Free'}</Text>
+              <Text style={styles.statValue}>{subscriptionPlan.replace(' Plan', '')}</Text>
             </View>
-            {(!stats?.subscription?.plan || stats?.subscription?.plan === 'Free') && (
+            {(subscriptionPlan === 'Free Plan' || subscriptionPlan === 'Free') && (
               <Text style={styles.upgradeText}>Upgrade</Text>
             )}
           </Pressable>
@@ -539,10 +563,23 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing[3],
   },
+  statContentColumn: {
+    flex: 1,
+    marginLeft: spacing[3],
+  },
+  statLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   statLabel: {
     fontSize: 12,
     color: GRAY[500],
     fontWeight: '500',
+  },
+  statSubLabelInline: {
+    fontSize: 10,
+    color: GRAY[400],
   },
   statValue: {
     fontSize: 16,

@@ -13,51 +13,61 @@ import type {
 
 /**
  * Get dashboard overview data
+ * Note: Backend doesn't have a single /dashboard endpoint,
+ * so we fetch stats and return it as DashboardResponse
  */
 export async function getDashboardOverview(): Promise<DashboardResponse> {
-  return await api.get<DashboardResponse>('/dashboard');
+  // Use /api/dashboard/stats as the main dashboard endpoint
+  const response = await api.get<{ success: boolean; stats: DashboardStats }>('/api/dashboard/stats');
+  return {
+    stats: response.stats,
+    reminders: [],
+    recentActivity: [],
+  };
 }
 
 /**
  * Get dashboard statistics
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  return await api.get<DashboardStats>('/dashboard/stats');
+  return await api.get<DashboardStats>('/api/dashboard/stats');
 }
 
 /**
  * Get health reminders
  */
 export async function getHealthReminders(): Promise<HealthReminder[]> {
-  return await api.get<HealthReminder[]>('/dashboard/reminders');
+  const response = await api.get<{ success: boolean; reminders: HealthReminder[] }>('/api/health-reminders');
+  return response.reminders || [];
 }
 
 /**
  * Get recent activities
  */
 export async function getRecentActivities(limit: number = 5): Promise<RecentActivity[]> {
-  return await api.get<RecentActivity[]>(`/dashboard/activities?limit=${limit}`);
+  const response = await api.get<{ success: boolean; activities: RecentActivity[] }>(`/api/activities?limit=${limit}`);
+  return response.activities || [];
 }
 
 /**
  * Complete a health reminder
  */
 export async function completeReminder(id: string): Promise<{ message: string }> {
-  return await api.patch(`/dashboard/reminders/${id}/complete`);
+  return await api.put('/api/health-reminders', { id, completed: true });
 }
 
 /**
  * Dismiss a health reminder
  */
 export async function dismissReminder(id: string): Promise<{ message: string }> {
-  return await api.patch(`/dashboard/reminders/${id}/dismiss`);
+  return await api.put('/api/health-reminders', { id, completed: true });
 }
 
 /**
- * Snooze a health reminder
+ * Snooze a health reminder (mark as incomplete to show again later)
  */
 export async function snoozeReminder(id: string, snoozeUntil: string): Promise<{ message: string }> {
-  return await api.patch(`/dashboard/reminders/${id}/snooze`, { snoozeUntil });
+  return await api.put('/api/health-reminders', { id, completed: false });
 }
 
 export const dashboardApi = {

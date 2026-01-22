@@ -24,6 +24,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner, Avatar } from '@/components/ui';
+import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import { containers, text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
@@ -68,6 +69,7 @@ export default function EditProfileScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [existingProfile, setExistingProfile] = useState<any>(null); // Store full profile for updates
 
   const {
     control,
@@ -111,6 +113,9 @@ export default function EditProfileScreen() {
       const profile = await profileApi.getProfile();
 
       if (profile) {
+        // Store full profile for use in updates
+        setExistingProfile(profile);
+
         setValue('firstName', profile.firstName || '');
         setValue('lastName', profile.lastName || '');
         setValue('phoneNumber', profile.phone || '');
@@ -161,7 +166,7 @@ export default function EditProfileScreen() {
       }
     } catch (err) {
       console.error('[EditProfile] Failed to pick image:', err);
-      showError('Failed to pick image');
+      showError('Unable to select image. Please try again.');
     }
   };
 
@@ -185,7 +190,7 @@ export default function EditProfileScreen() {
       }
     } catch (err) {
       console.error('[EditProfile] Failed to take photo:', err);
-      showError('Failed to take photo');
+      showError('Unable to take photo. Please try again.');
     }
   };
 
@@ -225,14 +230,35 @@ export default function EditProfileScreen() {
         phoneNumber: data.phoneNumber,
       });
 
-      // Update medical profile
+      // Update medical profile with correct structure
       await profileApi.updateProfile({
-        dateOfBirth: data.dateOfBirth,
-        gender: data.gender,
-        bloodType: data.bloodType || undefined,
-        height: data.height ? parseFloat(data.height) : undefined,
-        weight: data.weight ? parseFloat(data.weight) : undefined,
-        isOrganDonor: data.organDonor,
+        medicalProfile: {
+          bloodType: (data.bloodType || existingProfile?.bloodType || 'O+') as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-',
+          height: data.height ? `${data.height}cm` : (existingProfile?.height || '0') + 'cm',
+          weight: data.weight ? `${data.weight}kg` : (existingProfile?.weight || '0') + 'kg',
+          isOrganDonor: data.organDonor ?? existingProfile?.isOrganDonor ?? false,
+          hasDNR: existingProfile?.hasDNR ?? false,
+          emergencyNotes: existingProfile?.emergencyNotes || '',
+          // Preserve existing arrays
+          allergies: (existingProfile?.allergies || []).map((a: any) => ({
+            allergen: a.allergen,
+            severity: a.severity,
+            reaction: a.reaction,
+          })),
+          medicalConditions: (existingProfile?.conditions || []).map((c: any) => c.name),
+          medications: (existingProfile?.medications || []).map((m: any) => ({
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+          })),
+        },
+        emergencyContacts: (existingProfile?.emergencyContacts || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          relation: c.relationship,
+          phone: c.phone,
+          email: c.email || '',
+        })),
       });
 
       // Update emergency contact if provided
@@ -259,11 +285,20 @@ export default function EditProfileScreen() {
       // Refresh auth store with updated user data
       await checkAuth();
 
-      success('Profile updated successfully!');
+      success('Your profile has been updated!');
       setTimeout(() => navigation.goBack(), 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[EditProfile] Failed to update profile:', err);
-      showError('Failed to update profile. Please try again.');
+      const errorMessage = err?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t update your profile. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('timeout')) {
+        userMessage = 'The request took too long. Please try again.';
+      }
+
+      showError(userMessage);
     } finally {
       setIsLoading(false);
     }
@@ -283,11 +318,15 @@ export default function EditProfileScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
+            <Pressable
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ArrowLeft size={24} color={SEMANTIC.text.primary} />
             </Pressable>
             <Text style={styles.headerTitle}>Edit Profile</Text>
-            <View style={styles.placeholder} />
+            <View style={styles.headerSpacer} />
           </View>
 
           {/* Profile Picture Section */}
@@ -673,7 +712,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: SEMANTIC.text.primary,
   },
-  placeholder: {
+  headerSpacer: {
     width: 40,
   },
   profilePictureSection: {

@@ -117,11 +117,22 @@ export default function OSHAComplianceScreen() {
     mutationFn: createOSHAMetric,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oshaCompliance'] });
-      Alert.alert('Success', 'OSHA compliance metric added successfully');
+      Alert.alert('Category Added', 'OSHA compliance category has been added successfully.');
       setShowAddModal(false);
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to add metric');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to add compliance category. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to add compliance categories.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('duplicate') || message.includes('already exists')) {
+        friendlyMessage = 'This compliance category already exists.';
+      }
+
+      Alert.alert('Unable to Add Category', friendlyMessage);
     },
   });
 
@@ -131,10 +142,21 @@ export default function OSHAComplianceScreen() {
       updateOSHAMetric(metricId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oshaCompliance'] });
-      Alert.alert('Success', 'Metric updated successfully');
+      Alert.alert('Review Recorded', 'Compliance status has been updated successfully.');
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to update metric');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to update compliance status. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to update compliance records.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('not found')) {
+        friendlyMessage = 'This compliance record was not found. Please refresh and try again.';
+      }
+
+      Alert.alert('Unable to Update', friendlyMessage);
     },
   });
 

@@ -63,7 +63,7 @@ export function NFCScanScreen() {
       setStatus('error');
       setErrorMessage(
         error.response?.data?.message ||
-        'Failed to link bracelet. Please try again.'
+        'Unable to link bracelet. Please try again.'
       );
     },
   });
@@ -130,7 +130,7 @@ export function NFCScanScreen() {
 
         if (!initialized) {
           setStatus('error');
-          setErrorMessage('NFC is not supported on this device');
+          setErrorMessage('Your device does not support NFC scanning.');
           return;
         }
 
@@ -140,7 +140,7 @@ export function NFCScanScreen() {
 
         if (!available) {
           setStatus('error');
-          setErrorMessage('NFC is disabled. Please enable it in settings.');
+          setErrorMessage('NFC is turned off. Please enable it in your device settings.');
           return;
         }
 
@@ -150,7 +150,7 @@ export function NFCScanScreen() {
 
         if (!hasPermission) {
           setStatus('error');
-          setErrorMessage('NFC permission is required to scan bracelets');
+          setErrorMessage('NFC permission is needed to scan bracelets. Please allow access in settings.');
           return;
         }
 
@@ -167,7 +167,7 @@ export function NFCScanScreen() {
         console.error('NFC initialization error:', error);
         if (isActive) {
           setStatus('error');
-          setErrorMessage('Failed to initialize NFC scanner');
+          setErrorMessage('Unable to start NFC scanner. Please try again.');
         }
       }
     };
@@ -196,19 +196,19 @@ export function NFCScanScreen() {
             linkMutation.mutate(tag.id);
           } else {
             setStatus('error');
-            setErrorMessage('Invalid NFC tag. No ID found.');
+            setErrorMessage('This NFC tag is not valid. Please try a different tag.');
           }
         },
         (error: Error) => {
           console.error('NFC scanning error:', error);
           setStatus('error');
-          setErrorMessage(error.message || 'Failed to scan NFC tag');
+          setErrorMessage(error.message || 'Unable to scan NFC tag. Please try again.');
         }
       );
     } catch (error) {
       console.error('Start scanning error:', error);
       setStatus('error');
-      setErrorMessage('Failed to start NFC scanning');
+      setErrorMessage('Unable to start NFC scanning. Please try again.');
     }
   };
 
@@ -289,7 +289,7 @@ export function NFCScanScreen() {
       case 'processing':
         return 'Processing...';
       case 'success':
-        return 'Bracelet Linked!';
+        return 'Bracelet Linked Successfully!';
       case 'error':
         return 'Scan Failed';
       default:
@@ -305,7 +305,7 @@ export function NFCScanScreen() {
       case 'processing':
         return 'Linking your bracelet to your profile...';
       case 'success':
-        return 'Your bracelet has been successfully linked!';
+        return 'Your bracelet is now connected to your emergency profile!';
       case 'error':
         if (DEV_MOCK_MODE && errorMessage.includes('production build')) {
           return 'Running in Expo Go. Click "Simulate Scan" below to test the flow.';

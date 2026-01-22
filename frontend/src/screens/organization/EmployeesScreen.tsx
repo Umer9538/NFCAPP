@@ -25,6 +25,7 @@ import {
   Clock,
   UserPlus,
   UserX,
+  ArrowLeft,
 } from 'lucide-react-native';
 
 import { Card, Badge, LoadingSpinner } from '@/components/ui';
@@ -330,6 +331,13 @@ export default function EmployeesScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
         <Text style={styles.headerTitle}>{dashboardConfig.terminology.users}</Text>
         <Pressable onPress={handleAddEmployee} style={styles.headerAddButton}>
           <Plus size={24} color={PRIMARY[600]} />
@@ -396,13 +404,23 @@ const styles = StyleSheet.create({
     borderBottomColor: SEMANTIC.border.light,
     backgroundColor: '#fff',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: SEMANTIC.text.primary,
   },
   headerAddButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,

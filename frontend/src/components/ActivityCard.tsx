@@ -141,7 +141,7 @@ export function ActivityCard({ activity, onPress }: ActivityCardProps) {
               <Text style={styles.detailLabel}>Type:</Text>
               <View style={[styles.typeBadge, { backgroundColor }]}>
                 <Text style={[styles.typeBadgeText, { color }]}>
-                  {activity.type.toUpperCase()}
+                  {(activity.type || 'unknown').toUpperCase()}
                 </Text>
               </View>
             </View>

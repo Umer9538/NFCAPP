@@ -210,7 +210,9 @@ export interface PaginatedResponse<T> {
  * Create organization for current user
  */
 export async function createMyOrg(data: CreateOrgRequest): Promise<Organization> {
-  return await api.post<Organization>('/api/organizations/create-my-org', data);
+  const response = await api.post<any>('/api/organizations/create-my-org', data);
+  // Backend returns { success: true, organization: {...} }
+  return response?.organization || response;
 }
 
 /**
@@ -447,11 +449,11 @@ function transformIncidentReport(report: any): IncidentReport {
     employeeEmail: report.employeeEmail || report.employee_email,
     severity: report.severity || 'low',
     status: report.status || 'open',
-    incidentDate: report.incidentDate || report.incident_date || report.dateOccurred || report.createdAt,
+    incidentDate: report.incidentDate || report.incident_date || report.dateOccurred || report.createdAt || new Date().toISOString(),
     location: report.location,
     reportedById: report.reportedById || report.reported_by_id || report.reporterId,
-    reportedByName: report.reportedByName || report.reported_by_name || report.reporterName || 'Unknown',
-    createdAt: report.createdAt || report.created_at || report.dateReported,
+    reportedByName: report.reportedByName || report.reportedBy || report.reported_by_name || report.reporterName || 'Unknown',
+    createdAt: report.createdAt || report.reportedAt || report.created_at || report.dateReported || new Date().toISOString(),
     updatedAt: report.updatedAt || report.updated_at,
     resolvedAt: report.resolvedAt || report.resolved_at,
     resolvedById: report.resolvedById || report.resolved_by_id,

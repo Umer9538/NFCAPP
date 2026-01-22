@@ -137,11 +137,24 @@ export default function EmployeeDetailsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['medical-info'] });
-      success('Employee updated successfully');
+      success('Profile has been updated successfully.');
       setIsEditMode(false);
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to update employee');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to update profile. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to update this profile.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('not found')) {
+        friendlyMessage = 'This team member was not found. They may have been removed.';
+      } else if (message.includes('email') && (message.includes('exists') || message.includes('taken'))) {
+        friendlyMessage = 'This email address is already in use.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
@@ -151,11 +164,22 @@ export default function EmployeeDetailsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['medical-info'] });
-      success('Employee removed successfully');
+      success('Team member has been removed from the organization.');
       navigation.goBack();
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to remove employee');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to remove team member. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to remove team members.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('not found')) {
+        friendlyMessage = 'This team member was not found. They may have already been removed.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
@@ -165,10 +189,21 @@ export default function EmployeeDetailsScreen() {
     onSuccess: (_, suspend) => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['medical-info'] });
-      success(suspend ? 'Employee access suspended' : 'Employee access reactivated');
+      success(suspend ? 'Access has been suspended for this team member.' : 'Access has been restored for this team member.');
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to update employee status');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to update access status. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to change access status.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('not found')) {
+        friendlyMessage = 'This team member was not found. Please refresh and try again.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 

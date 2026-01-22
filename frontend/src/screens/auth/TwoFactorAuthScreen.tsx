@@ -130,7 +130,7 @@ export default function TwoFactorAuthScreen() {
       const response = await authApi.verify2FA({ code: data.code });
 
       if (response.success) {
-        success('Authentication successful!');
+        success('You\'re now signed in!');
 
         // In a real implementation, the verify2FA response would include
         // the full auth tokens and user data
@@ -143,7 +143,18 @@ export default function TwoFactorAuthScreen() {
         }, 1000);
       }
     } catch (err: any) {
-      showError(err?.message || 'Invalid code. Please try again.');
+      const errorMessage = err?.message?.toLowerCase() || '';
+      let userMessage = 'That code didn\'t work. Please check and try again.';
+
+      if (errorMessage.includes('expired')) {
+        userMessage = 'This code has expired. Please request a new one.';
+      } else if (errorMessage.includes('invalid')) {
+        userMessage = 'That code is incorrect. Please try again.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection.';
+      }
+
+      showError(userMessage);
       // Clear code on error
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -162,11 +173,20 @@ export default function TwoFactorAuthScreen() {
         type: 'TWO_FACTOR',
       });
 
-      success(response.message || 'Authentication code resent!');
+      success('A new code has been sent to your authenticator app');
       setResendTimer(60);
       setCanResend(false);
     } catch (err: any) {
-      showError(err?.message || 'Failed to resend code. Please try again.');
+      const errorMessage = err?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t resend the code. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection.';
+      } else if (errorMessage.includes('too many')) {
+        userMessage = 'Too many attempts. Please wait a moment before trying again.';
+      }
+
+      showError(userMessage);
     } finally {
       setIsLoading(false);
     }

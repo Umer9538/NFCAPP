@@ -55,10 +55,17 @@ export default function MedicationsScreen() {
     mutationFn: (medicationId: string) => profileApi.removeMedication(medicationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      success('Medication removed successfully');
+      success('Removed from your profile.');
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to remove medication');
+      const message = error.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else if (message.includes('not found')) {
+        showError('This medication was not found in your profile.');
+      } else {
+        showError('Unable to remove medication. Please try again.');
+      }
     },
   });
 

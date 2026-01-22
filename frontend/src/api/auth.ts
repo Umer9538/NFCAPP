@@ -45,6 +45,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
       phoneNumber?: string;
       emailVerified: boolean;
       twoFactorEnabled: boolean;
+      profileComplete?: boolean;
       accountType?: string;
       organizationId?: string;
       role?: string;
@@ -63,6 +64,15 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
   const backendUser = response.user;
   const token = response.token || response.accessToken || '';
 
+  // Debug: Log what we received from backend
+  console.log('🔐 Backend login response:', {
+    hasUser: !!backendUser,
+    accountType: backendUser?.accountType,
+    organizationId: backendUser?.organizationId,
+    role: backendUser?.role,
+    email: backendUser?.email,
+  });
+
   // Parse name - backend might return fullName or firstName/lastName
   let firstName = backendUser.firstName || '';
   let lastName = backendUser.lastName || '';
@@ -80,6 +90,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
     phoneNumber: backendUser.phoneNumber,
     emailVerified: backendUser.emailVerified,
     twoFactorEnabled: backendUser.twoFactorEnabled,
+    profileComplete: backendUser.profileComplete ?? false,
     accountType: (backendUser.accountType as AccountType) || 'individual',
     organizationId: backendUser.organizationId,
     role: backendUser.role || undefined,
@@ -106,9 +117,14 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
  * Sign up new user
  */
 export async function signup(data: SignupRequest): Promise<SignupResponse> {
+  // Generate username from email, replacing invalid characters with underscores
+  // Backend only allows letters, numbers, and underscores
+  const rawUsername = data.email.split('@')[0];
+  const sanitizedUsername = rawUsername.replace(/[^a-zA-Z0-9_]/g, '_');
+
   const signupData = {
     fullName: `${data.firstName} ${data.lastName}`,
-    username: data.email.split('@')[0],
+    username: sanitizedUsername,
     email: data.email,
     password: data.password,
     confirmPassword: data.password,
@@ -175,28 +191,32 @@ export async function verifyEmail(data: VerifyEmailRequest): Promise<VerifyEmail
  * Resend email verification code
  */
 export async function resendVerificationEmail(email: string): Promise<{ message: string }> {
-  return await api.post('/auth/resend-verification', { email });
+  // Backend uses resend-otp endpoint with type parameter
+  return await api.post(API_CONFIG.ENDPOINTS.AUTH.RESEND_OTP, {
+    email,
+    type: 'EMAIL_VERIFICATION',
+  });
 }
 
 /**
  * Enable two-factor authentication
  */
 export async function enable2FA(): Promise<Enable2FAResponse> {
-  return await api.post<Enable2FAResponse>('/auth/2fa/enable');
+  return await api.post<Enable2FAResponse>(API_CONFIG.ENDPOINTS.AUTH.ENABLE_2FA);
 }
 
 /**
  * Verify two-factor authentication code
  */
 export async function verify2FA(data: Verify2FARequest): Promise<Verify2FAResponse> {
-  return await api.post<Verify2FAResponse>('/auth/2fa/verify', data);
+  return await api.post<Verify2FAResponse>(API_CONFIG.ENDPOINTS.AUTH.VERIFY_2FA, data);
 }
 
 /**
  * Disable two-factor authentication
  */
 export async function disable2FA(password: string): Promise<{ message: string }> {
-  return await api.post('/auth/2fa/disable', { password });
+  return await api.post(API_CONFIG.ENDPOINTS.AUTH.DISABLE_2FA, { password });
 }
 
 /**
@@ -220,6 +240,15 @@ export async function getMe(): Promise<User> {
 
     const backendUser = response.user || response;
 
+    // Debug: Log what we received from /auth/me
+    console.log('🔐 getMe response:', {
+      hasUser: !!backendUser,
+      accountType: backendUser?.accountType,
+      organizationId: backendUser?.organizationId,
+      role: backendUser?.role,
+      email: backendUser?.email,
+    });
+
     let firstName = backendUser.firstName || '';
     let lastName = backendUser.lastName || '';
     if (!firstName && backendUser.fullName) {
@@ -236,6 +265,7 @@ export async function getMe(): Promise<User> {
       phoneNumber: backendUser.phoneNumber,
       emailVerified: backendUser.emailVerified ?? true,
       twoFactorEnabled: backendUser.twoFactorEnabled ?? false,
+      profileComplete: backendUser.profileComplete ?? false,
       accountType: (backendUser.accountType as AccountType) || 'individual',
       organizationId: backendUser.organizationId,
       role: backendUser.role,
@@ -267,7 +297,7 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
  * Verify reset code
  */
 export async function verifyResetCode(data: VerifyResetCodeRequest): Promise<VerifyResetCodeResponse> {
-  return await api.post<VerifyResetCodeResponse>('/auth/verify-reset-code', data);
+  return await api.post<VerifyResetCodeResponse>(API_CONFIG.ENDPOINTS.AUTH.VERIFY_RESET_CODE, data);
 }
 
 /**
@@ -284,7 +314,7 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
  * Change password (for authenticated user)
  */
 export async function changePassword(data: ChangePasswordRequest): Promise<ChangePasswordResponse> {
-  return await api.post<ChangePasswordResponse>('/auth/change-password', data);
+  return await api.post<ChangePasswordResponse>('/api/auth/change-password', data);
 }
 
 /**
@@ -310,7 +340,7 @@ export async function validateToken(): Promise<{ valid: boolean; user?: User }> 
  * Delete user account
  */
 export async function deleteAccount(password: string): Promise<{ message: string }> {
-  const response = await api.delete<{ message: string }>('/auth/account', { data: { password } });
+  const response = await api.delete<{ message: string }>('/api/auth/account', { data: { password } });
   await logout();
   return response;
 }
@@ -323,7 +353,7 @@ export async function updateProfile(data: {
   lastName?: string;
   phoneNumber?: string;
 }): Promise<User> {
-  await api.patch('/auth/profile', data);
+  await api.patch('/api/auth/profile', data);
   return await getMe();
 }
 
@@ -331,7 +361,7 @@ export async function updateProfile(data: {
  * Check if email is available
  */
 export async function checkEmailAvailability(email: string): Promise<{ available: boolean }> {
-  return await api.post('/auth/check-email', { email });
+  return await api.post('/api/auth/check-email', { email });
 }
 
 /**
@@ -344,21 +374,21 @@ export async function getUserSessions(): Promise<Array<{
   lastActive: string;
   current: boolean;
 }>> {
-  return await api.get('/auth/sessions');
+  return await api.get('/api/auth/sessions');
 }
 
 /**
  * Revoke specific session
  */
 export async function revokeSession(sessionId: string): Promise<{ message: string }> {
-  return await api.delete(`/auth/sessions/${sessionId}`);
+  return await api.delete(`/api/auth/sessions/${sessionId}`);
 }
 
 /**
  * Revoke all sessions except current
  */
 export async function revokeAllSessions(): Promise<{ message: string }> {
-  return await api.delete('/auth/sessions');
+  return await api.delete('/api/auth/sessions');
 }
 
 /**
@@ -382,7 +412,70 @@ export interface ResendOtpResponse {
  * Resend OTP
  */
 export async function resendOtp(data: ResendOtpRequest): Promise<ResendOtpResponse> {
-  return await api.post<ResendOtpResponse>('/auth/resend-otp', data);
+  return await api.post<ResendOtpResponse>('/api/auth/resend-otp', data);
+}
+
+/**
+ * Profile Setup Request
+ */
+export interface ProfileSetupRequest {
+  email: string;
+  userInfo: {
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    gender?: string;
+  };
+  medicalProfile?: {
+    bloodType?: string;
+    height?: string;
+    weight?: string;
+    isOrganDonor?: boolean;
+    hasDNR?: boolean;
+    allergies?: Array<{ allergen: string; severity: string; reaction: string }>;
+    medicalConditions?: string[];
+    medications?: Array<{ name: string; dosage: string; frequency: string }>;
+    emergencyNotes?: string;
+  };
+  emergencyContacts?: Array<{
+    name: string;
+    relation: string;
+    phone: string;
+    email?: string;
+  }>;
+}
+
+/**
+ * Profile Setup Response
+ */
+export interface ProfileSetupResponse {
+  success: boolean;
+  message: string;
+  token: string;
+  refreshToken: string;
+  user: User;
+}
+
+/**
+ * Complete profile setup after email verification
+ * This creates the user profile and session
+ */
+export async function profileSetup(data: ProfileSetupRequest): Promise<ProfileSetupResponse> {
+  const response = await api.post<ProfileSetupResponse>(API_CONFIG.ENDPOINTS.AUTH.PROFILE_SETUP, data);
+
+  // Store tokens and user data
+  if (response.token) {
+    await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.token);
+  }
+  if (response.refreshToken) {
+    await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refreshToken);
+  }
+  if (response.user) {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
+  }
+
+  return response;
 }
 
 export const authApi = {
@@ -408,4 +501,5 @@ export const authApi = {
   getUserSessions,
   revokeSession,
   revokeAllSessions,
+  profileSetup,
 };

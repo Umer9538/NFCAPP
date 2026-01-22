@@ -78,7 +78,7 @@ export default function SecuritySettingsScreen() {
       setTwoFactorEnabled(false);
     } catch (error) {
       console.error('Error loading security settings:', error);
-      showError('Failed to load security settings');
+      showError('Unable to load security settings. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -127,13 +127,18 @@ export default function SecuritySettingsScreen() {
 
       if (result.success) {
         setBiometricEnabled(true);
-        success(`${getBiometricDisplayName(biometricType)} enabled successfully!`);
+        success(`${getBiometricDisplayName(biometricType)} is now enabled!`);
       } else {
-        showError(result.error || 'Failed to enable biometric authentication');
+        showError(result.error || 'Unable to enable biometric login. Please try again.');
       }
     } catch (error: any) {
       console.error('Error enabling biometric:', error);
-      showError(error?.message || 'Failed to enable biometric authentication');
+      const message = error?.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to enable biometric login. Please try again.');
+      }
     } finally {
       setBiometricLoading(false);
     }
@@ -146,10 +151,15 @@ export default function SecuritySettingsScreen() {
     try {
       await disableBiometric();
       setBiometricEnabled(false);
-      success(`${getBiometricDisplayName(biometricType)} disabled successfully`);
+      success(`${getBiometricDisplayName(biometricType)} has been disabled.`);
     } catch (error: any) {
       console.error('Error disabling biometric:', error);
-      showError(error?.message || 'Failed to disable biometric authentication');
+      const message = error?.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to disable biometric login. Please try again.');
+      }
     } finally {
       setBiometricLoading(false);
     }
@@ -172,7 +182,7 @@ export default function SecuritySettingsScreen() {
             onPress: async () => {
               // TODO: Implement 2FA disable
               setTwoFactorEnabled(false);
-              success('Two-factor authentication disabled');
+              success('Two-factor authentication has been disabled.');
             },
           },
         ]
@@ -232,7 +242,7 @@ export default function SecuritySettingsScreen() {
       type: 'link',
       onPress: () => {
         // TODO: Navigate to sessions screen
-        showError('Feature coming soon');
+        showError('This feature is coming soon!');
       },
     },
   ];

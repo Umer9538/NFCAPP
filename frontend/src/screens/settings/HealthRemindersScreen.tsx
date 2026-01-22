@@ -122,9 +122,9 @@ export default function HealthRemindersScreen() {
         setReminders((prev) =>
           prev.map((r) => (r.id === reminderId ? { ...r, enabled: true } : r))
         );
-        success('Reminder enabled');
+        success('Reminder is now active!');
       } catch (error) {
-        showError('Failed to enable reminder');
+        showError('Unable to enable reminder. Please try again.');
       }
     } else {
       // Cancel the reminder
@@ -133,9 +133,9 @@ export default function HealthRemindersScreen() {
         setReminders((prev) =>
           prev.map((r) => (r.id === reminderId ? { ...r, enabled: false } : r))
         );
-        success('Reminder disabled');
+        success('Reminder has been paused.');
       } catch (error) {
-        showError('Failed to disable reminder');
+        showError('Unable to disable reminder. Please try again.');
       }
     }
   };
@@ -150,9 +150,9 @@ export default function HealthRemindersScreen() {
           try {
             await cancelNotification(reminderId);
             setReminders((prev) => prev.filter((r) => r.id !== reminderId));
-            success('Reminder deleted');
+            success('Reminder has been removed.');
           } catch (error) {
-            showError('Failed to delete reminder');
+            showError('Unable to delete reminder. Please try again.');
           }
         },
       },
@@ -161,12 +161,12 @@ export default function HealthRemindersScreen() {
 
   const handleAddReminder = async () => {
     if (!newReminderTitle.trim()) {
-      showError('Please enter a reminder title');
+      showError('Please enter a title for your reminder.');
       return;
     }
 
     if (newReminderType === 'medication' && !newMedicationName.trim()) {
-      showError('Please enter medication name');
+      showError('Please enter the medication name.');
       return;
     }
 
@@ -209,9 +209,9 @@ export default function HealthRemindersScreen() {
       setSelectedDays([]);
       setShowAddReminder(false);
 
-      success('Reminder added successfully');
+      success('Your reminder has been created!');
     } catch (error) {
-      showError('Failed to add reminder');
+      showError('Unable to create reminder. Please try again.');
     }
   };
 

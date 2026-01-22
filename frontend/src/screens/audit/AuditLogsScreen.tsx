@@ -76,10 +76,10 @@ export default function AuditLogsScreen() {
       const result = await auditApi.exportAuditLogs('csv', filters);
       if (result.url) {
         await Linking.openURL(result.url);
-        success('Export started');
+        success('Your export is being prepared');
       }
     } catch (error) {
-      showError('Failed to export logs');
+      showError('We couldn\'t export your logs. Please try again.');
     }
   };
 

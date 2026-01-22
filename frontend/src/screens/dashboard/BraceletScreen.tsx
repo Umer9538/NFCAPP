@@ -55,11 +55,11 @@ export default function BraceletScreen() {
   const unlinkMutation = useMutation({
     mutationFn: braceletApi.unlinkBracelet,
     onSuccess: () => {
-      success('Bracelet unlinked successfully');
+      success('Your bracelet has been unlinked successfully.');
       queryClient.invalidateQueries({ queryKey: ['bracelet'] });
     },
     onError: () => {
-      showError('Failed to unlink bracelet');
+      showError('Unable to unlink bracelet. Please try again.');
     },
   });
 
@@ -67,11 +67,11 @@ export default function BraceletScreen() {
   const updateStatusMutation = useMutation({
     mutationFn: braceletApi.updateBraceletStatus,
     onSuccess: () => {
-      success('Status updated successfully');
+      success('Bracelet status has been updated.');
       queryClient.invalidateQueries({ queryKey: ['bracelet'] });
     },
     onError: () => {
-      showError('Failed to update status');
+      showError('Unable to update bracelet status. Please try again.');
     },
   });
 
@@ -79,13 +79,13 @@ export default function BraceletScreen() {
   const linkMutation = useMutation({
     mutationFn: (nfcId: string) => braceletApi.linkBracelet({ nfcId }),
     onSuccess: () => {
-      success('Bracelet linked successfully!');
+      success('Your bracelet is now linked to your profile!');
       queryClient.invalidateQueries({ queryKey: ['bracelet'] });
       setShowManualEntry(false);
       setManualNfcId('');
     },
     onError: (err: any) => {
-      showError(err.message || 'Failed to link bracelet');
+      showError(err.message || 'Unable to link bracelet. Please check the NFC ID and try again.');
     },
   });
 
@@ -126,7 +126,7 @@ export default function BraceletScreen() {
   const handleTestProfile = () => {
     if (bracelet?.emergencyUrl) {
       Linking.openURL(bracelet.emergencyUrl);
-      success('Opening emergency profile...');
+      success('Opening your emergency profile in browser...');
     }
   };
 

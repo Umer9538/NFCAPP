@@ -114,10 +114,23 @@ export default function TrainingRecordsScreen() {
     mutationFn: createTrainingRecord,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainingRecords'] });
-      Alert.alert('Success', 'Training record added successfully');
+      Alert.alert('Record Added', 'Training record has been added successfully.');
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to add training record');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to add training record. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to add training records.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('duplicate') || message.includes('already exists')) {
+        friendlyMessage = 'This training record already exists for this worker.';
+      } else if (message.includes('worker not found')) {
+        friendlyMessage = 'Worker not found. Please refresh and try again.';
+      }
+
+      Alert.alert('Unable to Add Record', friendlyMessage);
     },
   });
 

@@ -395,9 +395,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return response;
       }
 
-      // Set tokens and user
+      // Set tokens first
       await get().setTokens(response.token, response.refreshToken);
-      get().setUser(response.user);
+
+      // Fetch complete user profile (includes profileComplete field)
+      try {
+        const fullUser = await authApi.getMe();
+        get().setUser(fullUser);
+        response.user = fullUser;
+      } catch (error) {
+        // Fallback to login response user if getMe fails
+        console.warn('Could not fetch full user profile:', error);
+        get().setUser(response.user);
+      }
 
       set({ isLoading: false });
       return response;
@@ -406,24 +416,49 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       // so this catch block only handles real API errors for non-mock users
       console.log('🔐 Login API failed:', { email });
 
-      // Extract error message properly
-      let errorMessage = 'Login failed. Please try again.';
+      // Extract and humanize error message
+      let errorMessage = 'Unable to sign in. Please check your credentials and try again.';
+
       if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
+        // Check for common error scenarios and provide friendly messages
+        const msg = error.message.toLowerCase();
+        if (msg.includes('invalid credentials') || msg.includes('wrong password') || msg.includes('incorrect')) {
+          errorMessage = 'Incorrect email or password. Please try again.';
+        } else if (msg.includes('user not found') || msg.includes('no user') || msg.includes('not found')) {
+          errorMessage = 'No account found with this email. Please check your email or sign up.';
+        } else if (msg.includes('email not verified')) {
+          errorMessage = 'Please verify your email address before signing in.';
+        } else if (msg.includes('suspended')) {
+          errorMessage = 'Your account has been suspended. Please contact your administrator.';
+        } else if (msg.includes('network') || msg.includes('connection')) {
+          errorMessage = 'Unable to connect. Please check your internet connection.';
+        } else if (msg.includes('timeout')) {
+          errorMessage = 'Connection timed out. Please try again.';
+        } else {
+          // Use the error message if it's already user-friendly
+          errorMessage = error.message;
+        }
       }
 
       console.log('🔐 Login error:', errorMessage);
       set({ isLoading: false, error: errorMessage });
 
-      // Throw an error with the message so UI can catch it
+      // Preserve special properties for email verification flow
+      if (error?.requiresEmailVerification) {
+        const verificationError = new Error(errorMessage) as any;
+        verificationError.requiresEmailVerification = true;
+        verificationError.userId = error.userId;
+        throw verificationError;
+      }
+
+      // Throw an error with the friendly message so UI can display it
       throw new Error(errorMessage);
     }
   },
 
   /**
    * Sign up new user
+   * Note: Does NOT authenticate the user - they must verify email first
    */
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
     set({ isLoading: true, error: null });
@@ -431,16 +466,34 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const response = await authApi.signup(data);
 
-      // Set tokens and user
-      await get().setTokens(response.token, response.refreshToken);
-      get().setUser(response.user);
+      // Do NOT set tokens or authenticate user after signup
+      // User must verify email first, then login
+      // The response contains user info for display purposes only
 
       set({ isLoading: false });
       return response;
     } catch (error: any) {
-      const errorMessage = error?.message || 'Signup failed. Please try again.';
+      // Humanize signup error messages
+      let errorMessage = 'Unable to create account. Please try again.';
+
+      if (error?.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('already') || msg.includes('exists') || msg.includes('registered')) {
+          errorMessage = 'This email is already registered. Please try logging in instead.';
+        } else if (msg.includes('invalid email')) {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (msg.includes('password') && (msg.includes('weak') || msg.includes('short') || msg.includes('strong'))) {
+          errorMessage = 'Password must be at least 8 characters with letters and numbers.';
+        } else if (msg.includes('network') || msg.includes('connection')) {
+          errorMessage = 'Unable to connect. Please check your internet connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       set({ isLoading: false, error: errorMessage });
-      throw error;
+      const friendlyError = new Error(errorMessage);
+      throw friendlyError;
     }
   },
 

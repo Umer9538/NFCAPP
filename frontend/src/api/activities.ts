@@ -32,14 +32,14 @@ export async function getActivities(
     params.append('search', filters.search);
   }
 
-  return api.get<ActivitiesResponse>(`/activities?${params.toString()}`);
+  return api.get<ActivitiesResponse>(`/api/activities?${params.toString()}`);
 }
 
 /**
  * Get single activity details
  */
 export async function getActivityDetails(id: string): Promise<Activity> {
-  return api.get<Activity>(`/activities/${id}`);
+  return api.get<Activity>(`/api/activities/${id}`);
 }
 
 /**
@@ -65,14 +65,14 @@ export async function exportActivities(
 
   // This would normally return a blob for download
   // For now, we'll just call the endpoint
-  return api.get<Blob>(`/activities/export?${params.toString()}`);
+  return api.get<Blob>(`/api/activities/export?${params.toString()}`);
 }
 
 /**
  * Delete activity log
  */
 export async function deleteActivity(id: string): Promise<{ message: string }> {
-  return api.delete(`/activities/${id}`);
+  return api.delete(`/api/activities/${id}`);
 }
 
 export const activitiesApi = {

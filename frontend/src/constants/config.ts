@@ -5,30 +5,17 @@
  */
 
 import * as Application from 'expo-application';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
 // Re-export database module types and endpoints
 export {
-  AUTH_ENDPOINTS,
-  PROFILE_ENDPOINTS,
-  DASHBOARD_ENDPOINTS,
-  BRACELET_ENDPOINTS,
-  ACTIVITY_ENDPOINTS,
-  HEALTH_ENDPOINTS,
-  SETTINGS_ENDPOINTS,
-  SUBSCRIPTION_ENDPOINTS,
-  ORGANIZATION_ENDPOINTS,
-  buildUrl,
-  HTTP_STATUS,
+  ACTIVITY_ENDPOINTS, AUTH_ENDPOINTS, BRACELET_ENDPOINTS, buildUrl, DASHBOARD_ENDPOINTS, HEALTH_ENDPOINTS, HTTP_STATUS, ORGANIZATION_ENDPOINTS, PROFILE_ENDPOINTS, SETTINGS_ENDPOINTS,
+  SUBSCRIPTION_ENDPOINTS
 } from '@database/config/api.endpoints';
 
 export { STORAGE_KEYS } from '@database/utils/storage.helpers';
 
 export {
-  BLOOD_TYPES,
-  ALLERGY_SEVERITIES,
-  MEDICATION_FREQUENCIES,
+  ALLERGY_SEVERITIES, BLOOD_TYPES, MEDICATION_FREQUENCIES
 } from '@database/types/medical.types';
 
 export { SUBSCRIPTION_PLANS } from '@database/types/subscription.types';
@@ -44,30 +31,28 @@ function getApiBaseUrl(): string {
     return envUrl;
   }
 
-  // Development mode - auto-detect correct URL
-  if (__DEV__) {
-    const { manifest } = Constants;
+  // Default: Use deployed Vercel backend (works for both dev and production)
+  // This ensures the app always connects to the real backend with real data
+  // Note: Do NOT include /api here - endpoints already have /api prefix
+  const VERCEL_API_URL = 'https://nfc-medical-profile-platform.vercel.app';
 
-    // For Expo Go on physical device
-    if (manifest && 'debuggerHost' in manifest) {
-      const debuggerHost = manifest.debuggerHost;
-      if (debuggerHost) {
-        const host = debuggerHost.split(':')[0];
-        return `http://${host}:3000`;
-      }
-    }
+  // Uncomment below to use local backend during development:
+  // if (__DEV__) {
+  //   const { manifest } = Constants;
+  //   if (manifest && 'debuggerHost' in manifest) {
+  //     const debuggerHost = manifest.debuggerHost;
+  //     if (debuggerHost) {
+  //       const host = debuggerHost.split(':')[0];
+  //       return `http://${host}:3000`;
+  //     }
+  //   }
+  //   if (Platform.OS === 'android') {
+  //     return 'http://10.0.2.2:3000';
+  //   }
+  //   return 'http://localhost:3000';
+  // }
 
-    // For Android emulator
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:3000';
-    }
-
-    // For iOS simulator and default
-    return 'http://localhost:3000';
-  }
-
-  // Production mode - use environment variable or default
-  return 'https://api.medid.com';
+  return VERCEL_API_URL;
 }
 
 // Environment variables

@@ -33,6 +33,7 @@ export default function VerifyEmailScreen() {
   const { toastConfig, hideToast, success, error: showError } = useToast();
 
   const email = route.params?.email || '';
+  const userId = route.params?.userId || '';
 
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
@@ -115,18 +116,27 @@ export default function VerifyEmailScreen() {
       setIsLoading(true);
       await authApi.verifyEmail({ email, code: data.code });
 
-      success('Email verified successfully!');
+      success('Email verified! Complete your profile to continue.');
 
-      // Navigate to dashboard after successful verification
-      // The RootNavigator will handle switching to App stack
+      // Navigate to ProfileSetup after email verification
+      // User will login after completing profile setup
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'Login' }],
+          routes: [{ name: 'ProfileSetup', params: { email, userId } }],
         });
-      }, 1000);
+      }, 1500);
     } catch (err: any) {
-      showError(err?.message || 'Invalid verification code. Please try again.');
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('invalid') || msg.includes('incorrect') || msg.includes('wrong')) {
+        showError('Invalid verification code. Please check and try again.');
+      } else if (msg.includes('expired')) {
+        showError('This code has expired. Please request a new one.');
+      } else if (msg.includes('too many')) {
+        showError('Too many attempts. Please wait a moment and try again.');
+      } else {
+        showError('Unable to verify. Please try again.');
+      }
       // Clear code on error
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
@@ -149,7 +159,14 @@ export default function VerifyEmailScreen() {
       setResendTimer(60);
       setCanResend(false);
     } catch (err: any) {
-      showError(err?.message || 'Failed to resend code. Please try again.');
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('too many') || msg.includes('limit')) {
+        showError('Too many requests. Please wait a few minutes and try again.');
+      } else if (msg.includes('not found')) {
+        showError('Email address not found. Please check your email.');
+      } else {
+        showError('Unable to resend code. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

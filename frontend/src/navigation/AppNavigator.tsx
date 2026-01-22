@@ -50,6 +50,9 @@ import PrivacySettingsScreen from '@/screens/settings/PrivacySettingsScreen';
 import ChangePasswordScreen from '@/screens/settings/ChangePasswordScreen';
 import Enable2FAScreen from '@/screens/settings/Enable2FAScreen';
 
+// Notifications
+import NotificationsScreen from '@/screens/dashboard/NotificationsScreen';
+
 // Audit & Logs
 import AuditLogsScreen from '@/screens/audit/AuditLogsScreen';
 import ScanHistoryScreen from '@/screens/audit/ScanHistoryScreen';
@@ -76,7 +79,19 @@ import {
   CreateIncidentReportScreen,
   IncidentReportDetailsScreen,
   EditIncidentReportScreen,
+  TeachersScreen,
+  ParentsScreen,
+  EmergencyNotificationsScreen,
+  StudentsScreen,
+  TrainingRecordsScreen,
+  OSHAComplianceScreen,
 } from '@/screens/organization';
+
+// Location
+import { LocationSharingScreen } from '@/screens/location';
+
+// Settings (for More screen navigation)
+import SettingsScreen from '@/screens/settings/SettingsScreen';
 
 const Stack = createStackNavigator<AppStackParamList>();
 
@@ -86,9 +101,16 @@ const Stack = createStackNavigator<AppStackParamList>();
  * Uses key prop to force re-render when accountType changes
  */
 function ConditionalDashboard() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accountType = useAuthStore((state) => state.accountType);
   const organizationId = useAuthStore((state) => state.organizationId);
   const user = useAuthStore((state) => state.user);
+
+  // Early return if not authenticated (prevents render during logout transition)
+  if (!isAuthenticated || !user) {
+    console.log('🧭 ConditionalDashboard: Not authenticated, returning null');
+    return null;
+  }
 
   // Check if user is an organization account type
   // Priority: user.accountType > store.accountType
@@ -103,9 +125,6 @@ function ConditionalDashboard() {
     isOrgUser,
     userRole: user?.role
   });
-
-  // If org user without organization, they need to set up first
-  // This is handled by showing SetupOrganization as initial route when needed
 
   // Show OrganizationNavigator for org users, DashboardNavigator for individuals
   if (isOrgUser) {
@@ -371,6 +390,15 @@ export default function AppNavigator() {
         }}
       />
 
+      {/* Notifications Screen */}
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
       {/* Audit & Logs Screens */}
       <Stack.Screen
         name="AuditLogs"
@@ -465,6 +493,14 @@ export default function AppNavigator() {
       />
 
       <Stack.Screen
+        name="Students"
+        component={StudentsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="AddEmployee"
         component={AddEmployeeScreen}
         options={{
@@ -515,6 +551,66 @@ export default function AppNavigator() {
       <Stack.Screen
         name="EditIncidentReport"
         component={EditIncidentReportScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {/* Education Screens (accessible from More menu) */}
+      <Stack.Screen
+        name="MedicalInfo"
+        component={OrganizationMedicalInfoScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Teachers"
+        component={TeachersScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Parents"
+        component={ParentsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyNotifications"
+        component={EmergencyNotificationsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Location"
+        component={LocationSharingScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      {/* Construction Screens */}
+      <Stack.Screen
+        name="TrainingRecords"
+        component={TrainingRecordsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="OSHACompliance"
+        component={OSHAComplianceScreen}
         options={{
           headerShown: false,
         }}

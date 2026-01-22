@@ -61,7 +61,7 @@ export default function BiometricSetupScreen() {
 
   const handleEnable = async () => {
     if (!token || !userEmail) {
-      showError('Missing authentication credentials');
+      showError('Your session has expired. Please log in again.');
       return;
     }
 
@@ -74,10 +74,26 @@ export default function BiometricSetupScreen() {
         // Navigate to main app
         navigation.navigate('MainTabs');
       } else {
-        showError(result.error || 'Failed to enable biometric authentication');
+        const errorMessage = result.error?.toLowerCase() || '';
+        let userMessage = 'We couldn\'t enable biometric login. Please try again.';
+
+        if (errorMessage.includes('cancelled') || errorMessage.includes('canceled')) {
+          userMessage = 'Biometric setup was cancelled. You can enable it later in Settings.';
+        } else if (errorMessage.includes('locked')) {
+          userMessage = 'Biometric authentication is locked. Please try again later.';
+        }
+
+        showError(userMessage);
       }
     } catch (error: any) {
-      showError(error?.message || 'Failed to enable biometric authentication');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t enable biometric login. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection.';
+      }
+
+      showError(userMessage);
     } finally {
       setIsLoading(false);
     }

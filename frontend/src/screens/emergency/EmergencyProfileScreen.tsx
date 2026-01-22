@@ -86,7 +86,7 @@ export default function EmergencyProfileScreen() {
           return Linking.openURL(phoneUrl);
         }
       })
-      .catch((err) => console.error('Failed to make call', err));
+      .catch((err) => console.error('Unable to make phone call. Please try again.', err));
   };
 
   if (isLoading) {
@@ -343,7 +343,7 @@ function AllergyCard({ allergy }: { allergy: Allergy }) {
       <View style={styles.allergyHeader}>
         <Text style={styles.allergyName}>{allergy.name}</Text>
         <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(allergy.severity) }]}>
-          <Text style={styles.severityText}>{allergy.severity.toUpperCase()}</Text>
+          <Text style={styles.severityText}>{(allergy.severity || 'unknown').toUpperCase()}</Text>
         </View>
       </View>
       {allergy.reaction && (
@@ -374,7 +374,7 @@ function ConditionCard({ condition }: { condition: MedicalCondition }) {
       <View style={styles.conditionHeader}>
         <Text style={styles.conditionName}>{condition.name}</Text>
         <View style={[styles.statusBadge, { backgroundColor: EMERGENCY_COLORS.warning }]}>
-          <Text style={styles.statusText}>{condition.status.toUpperCase()}</Text>
+          <Text style={styles.statusText}>{(condition.status || 'active').toUpperCase()}</Text>
         </View>
       </View>
       {condition.notes && (

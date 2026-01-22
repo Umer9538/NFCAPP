@@ -26,7 +26,10 @@
       },
       "entitlements": {
         "aps-environment": "development",
-        "com.apple.developer.nfc.readersession.formats": ["NDEF", "TAG"]
+        "com.apple.developer.nfc.readersession.formats": [
+          "NDEF",
+          "TAG"
+        ]
       }
     },
     "android": {
@@ -45,7 +48,8 @@
         "android.permission.INTERNET",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE",
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECORD_AUDIO"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -60,7 +64,9 @@
         "react-native-nfc-manager",
         {
           "nfcPermission": "MedGuard needs NFC access to read and link your medical bracelet",
-          "selectIdentifiers": ["D2760000850101"],
+          "selectIdentifiers": [
+            "D2760000850101"
+          ],
           "systemCodes": []
         }
       ],
@@ -100,6 +106,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3c5f6c8b-b2d4-479b-97fe-433adc916202"
+      }
     }
   }
 }

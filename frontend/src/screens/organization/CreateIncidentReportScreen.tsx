@@ -83,12 +83,21 @@ export default function CreateIncidentReportScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incidentReports'] });
       queryClient.invalidateQueries({ queryKey: ['incidentReportStats'] });
-      Alert.alert('Success', 'Incident report created successfully', [
+      Alert.alert('Report Created', 'Your incident report has been submitted successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to create incident report');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t create the report. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        userMessage = 'You don\'t have permission to create incident reports.';
+      }
+
+      Alert.alert('Unable to Create Report', userMessage);
     },
   });
 
@@ -99,15 +108,15 @@ export default function CreateIncidentReportScreen() {
   const handleSubmit = () => {
     // Validation
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title');
+      Alert.alert('Missing Information', 'Please enter a title for this report.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Validation Error', 'Please enter a description');
+      Alert.alert('Missing Information', 'Please provide a description of the incident.');
       return;
     }
     if (!selectedEmployee) {
-      Alert.alert('Validation Error', 'Please select an affected employee');
+      Alert.alert('Missing Information', 'Please select the affected employee.');
       return;
     }
 

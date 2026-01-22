@@ -77,6 +77,13 @@ export default function AccountSettingsScreen() {
     watch,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
+    defaultValues: {
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      email: user?.email || '',
+      phoneNumber: user?.phoneNumber || '',
+      dateOfBirth: '',
+    },
   });
 
   const currentEmail = watch('email');
@@ -103,18 +110,27 @@ export default function AccountSettingsScreen() {
   }, [showVerificationModal]);
 
   const loadProfile = async () => {
+    // Set original email from user data as fallback
+    if (user?.email) {
+      setOriginalEmail(user.email);
+    }
+
     try {
       setIsLoading(true);
       const profile = await getProfile();
-      setValue('firstName', profile.firstName);
-      setValue('lastName', profile.lastName);
-      setValue('email', profile.email);
-      setValue('phoneNumber', profile.phone || '');
+      setValue('firstName', profile.firstName || user?.firstName || '');
+      setValue('lastName', profile.lastName || user?.lastName || '');
+      setValue('email', profile.email || user?.email || '');
+      setValue('phoneNumber', profile.phone || user?.phoneNumber || '');
       setValue('dateOfBirth', profile.dateOfBirth || '');
       setProfileImage(profile.profilePicture);
-      setOriginalEmail(profile.email);
-    } catch (err) {
-      showError('Failed to load profile');
+      setOriginalEmail(profile.email || user?.email || '');
+    } catch (err: any) {
+      // Silently handle 401 errors (user will be logged out by API client)
+      // Also don't show error if we have user data from auth store
+      if (err?.status !== 401 && !user?.firstName && !user?.email) {
+        console.error('[AccountSettings] Failed to load profile:', err);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +150,7 @@ export default function AccountSettingsScreen() {
         setProfileImage(imageUri);
       }
     } catch (err) {
-      showError('Failed to pick image');
+      showError('Unable to select photo. Please try again.');
     }
   };
 
@@ -143,7 +159,7 @@ export default function AccountSettingsScreen() {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
 
       if (!permission.granted) {
-        showError('Camera permission is required');
+        showError('Camera access is needed to take a photo.');
         return;
       }
 
@@ -158,7 +174,7 @@ export default function AccountSettingsScreen() {
         setProfileImage(imageUri);
       }
     } catch (err) {
-      showError('Failed to take photo');
+      showError('Unable to take photo. Please try again.');
     }
   };
 
@@ -183,11 +199,21 @@ export default function AccountSettingsScreen() {
       // Refresh the auth store to update user data everywhere
       await checkAuth();
 
-      success('Profile updated successfully');
+      success('Your changes have been saved!');
       setTimeout(() => navigation.goBack(), 1000);
-    } catch (err) {
+    } catch (err: any) {
+      // Silently handle 401 errors (user will be logged out by API client)
+      if (err?.status === 401) {
+        setIsSaving(false);
+        return;
+      }
       console.error('[AccountSettings] Failed to update profile:', err);
-      showError('Failed to update profile');
+      const message = err?.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to save changes. Please try again.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -227,7 +253,7 @@ export default function AccountSettingsScreen() {
   const handleVerifyEmail = async () => {
     const code = otpCode.join('');
     if (code.length !== OTP_LENGTH) {
-      showError('Please enter the complete verification code');
+      showError('Please enter all 6 digits of the verification code.');
       return;
     }
 
@@ -247,7 +273,7 @@ export default function AccountSettingsScreen() {
       }
 
       setShowVerificationModal(false);
-      success('Email updated successfully');
+      success('Your email has been updated!');
       setOriginalEmail(pendingEmail);
       setValue('email', pendingEmail);
 
@@ -256,7 +282,16 @@ export default function AccountSettingsScreen() {
 
       setTimeout(() => navigation.goBack(), 1500);
     } catch (err: any) {
-      showError(err.message || 'Failed to verify email');
+      const message = err?.message?.toLowerCase() || '';
+      if (message.includes('invalid') || message.includes('incorrect') || message.includes('wrong')) {
+        showError('Incorrect code. Please check and try again.');
+      } else if (message.includes('expired')) {
+        showError('Code has expired. Please request a new one.');
+      } else if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to verify email. Please try again.');
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -268,10 +303,15 @@ export default function AccountSettingsScreen() {
     try {
       setIsResending(true);
       await resendEmailVerificationCode(pendingEmail);
-      success('Verification code sent');
+      success('A new verification code has been sent!');
       setResendCooldown(60);
     } catch (err: any) {
-      showError(err.message || 'Failed to resend code');
+      const message = err?.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to send code. Please try again later.');
+      }
     } finally {
       setIsResending(false);
     }
@@ -308,7 +348,7 @@ export default function AccountSettingsScreen() {
         <View style={styles.avatarSection}>
           <Avatar
             size="xl"
-            initials="U"
+            initials={`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`}
             imageUri={profileImage}
           />
           <View style={styles.avatarButtons}>

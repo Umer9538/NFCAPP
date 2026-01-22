@@ -100,10 +100,19 @@ export default function IncidentReportDetailsScreen() {
       queryClient.invalidateQueries({ queryKey: ['incidentReportStats'] });
       setShowStatusModal(false);
       setStatusNotes('');
-      Alert.alert('Success', 'Status updated successfully');
+      Alert.alert('Status Updated', 'The report status has been updated successfully.');
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to update status');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t update the status. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection.';
+      } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        userMessage = 'You don\'t have permission to change the status.';
+      }
+
+      Alert.alert('Unable to Update Status', userMessage);
     },
   });
 
@@ -113,12 +122,21 @@ export default function IncidentReportDetailsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incidentReports'] });
       queryClient.invalidateQueries({ queryKey: ['incidentReportStats'] });
-      Alert.alert('Success', 'Report deleted successfully', [
+      Alert.alert('Report Deleted', 'The incident report has been deleted.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to delete report');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t delete this report. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection.';
+      } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        userMessage = 'You don\'t have permission to delete this report.';
+      }
+
+      Alert.alert('Unable to Delete Report', userMessage);
     },
   });
 

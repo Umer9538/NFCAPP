@@ -13,9 +13,14 @@ import {
   RefreshControl,
   TextInput,
   SafeAreaView,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   HardHat,
   Plus,
@@ -27,9 +32,14 @@ import {
   UserPlus,
   Shield,
   BookOpen,
+  X,
+  Wrench,
+  MapPin,
+  ArrowLeft,
 } from 'lucide-react-native';
 
-import { LoadingSpinner } from '@/components/ui';
+import { LoadingSpinner, Toast, useToast } from '@/components/ui';
+import { api } from '@/api/client';
 import { organizationsApi, type Worker } from '@/api/organizations';
 import { useAuthStore } from '@/store/authStore';
 import { SEMANTIC, STATUS, GRAY } from '@/constants/colors';
@@ -41,13 +51,80 @@ const CONSTRUCTION_PRIMARY = '#EA580C';
 
 type FilterOption = 'all' | 'active' | 'training_due';
 
+// Add Worker form interface
+interface AddWorkerForm {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  position: string;
+  jobSite: string;
+}
+
+const initialFormState: AddWorkerForm = {
+  fullName: '',
+  email: '',
+  phoneNumber: '',
+  position: '',
+  jobSite: '',
+};
+
 export default function WorkersScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
+  const queryClient = useQueryClient();
+  const { toastConfig, hideToast, success, error: showError } = useToast();
   const userRole = useAuthStore((state) => state.user?.role);
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === 'admin' || userRole === 'supervisor';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('all');
+
+  // Add Worker Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState<AddWorkerForm>(initialFormState);
+
+  // Update form field
+  const updateFormField = (field: keyof AddWorkerForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData(initialFormState);
+  };
+
+  // Add worker mutation
+  const addWorkerMutation = useMutation({
+    mutationFn: async (data: AddWorkerForm) => {
+      const response = await api.post<any>('/api/organizations/employees', {
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber || undefined,
+        position: data.position || undefined,
+        department: data.jobSite || undefined, // Using department field for job site
+      });
+      return response;
+    },
+    onSuccess: () => {
+      success('Worker added! An invitation email has been sent.');
+      setShowAddModal(false);
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+    },
+    onError: (err: any) => {
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('already exists') || msg.includes('already registered')) {
+        showError('A worker with this email already exists.');
+      } else if (msg.includes('invalid email')) {
+        showError('Please enter a valid email address.');
+      } else if (msg.includes('permission') || msg.includes('admin')) {
+        showError('Only administrators can add workers.');
+      } else if (msg.includes('network') || msg.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to add worker. Please try again.');
+      }
+    },
+  });
 
   // Fetch workers
   const {
@@ -62,15 +139,62 @@ export default function WorkersScreen() {
 
   const workers = workersData?.data || [];
 
+  // Mock data for development when API returns empty
+  const mockWorkers: Worker[] = [
+    {
+      id: 'worker-1',
+      email: 'john.smith@construction.com',
+      fullName: 'John Smith',
+      status: 'active',
+      profileComplete: true,
+      role: 'Electrician',
+      trainingStatus: 'current',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'worker-2',
+      email: 'mike.johnson@construction.com',
+      fullName: 'Mike Johnson',
+      status: 'active',
+      profileComplete: true,
+      role: 'Plumber',
+      trainingStatus: 'expiring_soon',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'worker-3',
+      email: 'david.williams@construction.com',
+      fullName: 'David Williams',
+      status: 'active',
+      profileComplete: false,
+      role: 'Carpenter',
+      trainingStatus: 'expired',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'worker-4',
+      email: 'robert.brown@construction.com',
+      fullName: 'Robert Brown',
+      status: 'active',
+      profileComplete: true,
+      role: 'Welder',
+      trainingStatus: 'current',
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  // Only use mock data in development when API fails or returns empty
+  const displayWorkers = __DEV__ && workers.length === 0 ? mockWorkers : workers;
+
   // Calculate stats
-  const totalCount = workers.length;
-  const activeCount = workers.filter((w) => w.status === 'active').length;
-  const trainingDueCount = workers.filter(
+  const totalCount = displayWorkers.length;
+  const activeCount = displayWorkers.filter((w) => w.status === 'active').length;
+  const trainingDueCount = displayWorkers.filter(
     (w) => w.trainingStatus === 'expired' || w.trainingStatus === 'expiring_soon'
   ).length;
 
   // Filter workers
-  const filteredWorkers = workers.filter((w) => {
+  const filteredWorkers = displayWorkers.filter((w) => {
     const matchesSearch =
       !searchQuery ||
       w.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,7 +210,31 @@ export default function WorkersScreen() {
   });
 
   const handleAddWorker = () => {
-    navigation.navigate('AddEmployee', { type: 'worker' });
+    setShowAddModal(true);
+  };
+
+  const handleSubmitWorker = () => {
+    // Validate required fields
+    if (!formData.fullName.trim()) {
+      Alert.alert('Required', 'Please enter the worker\'s full name');
+      return;
+    }
+    if (!formData.email.trim()) {
+      Alert.alert('Required', 'Please enter the worker\'s email');
+      return;
+    }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+    addWorkerMutation.mutate(formData);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    resetForm();
   };
 
   const handleWorkerPress = (worker: Worker) => {
@@ -137,7 +285,7 @@ export default function WorkersScreen() {
             <Text style={styles.workerEmail}>{item.email}</Text>
             {item.role && (
               <View style={styles.roleContainer}>
-                <HardHat size={12} color={GRAY[500]} />
+                <Wrench size={12} color={GRAY[500]} />
                 <Text style={styles.roleText}>{item.role}</Text>
               </View>
             )}
@@ -327,11 +475,20 @@ export default function WorkersScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
         <Text style={styles.headerTitle}>Workers</Text>
-        {isAdmin && (
+        {isAdmin ? (
           <Pressable onPress={handleAddWorker} style={styles.headerAddButton}>
             <Plus size={24} color={CONSTRUCTION_PRIMARY} />
           </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
@@ -365,11 +522,140 @@ export default function WorkersScreen() {
       )}
 
       {/* FAB */}
-      {isAdmin && workers.length > 0 && (
+      {isAdmin && displayWorkers.length > 0 && (
         <Pressable style={styles.fab} onPress={handleAddWorker}>
           <UserPlus size={24} color="#fff" />
         </Pressable>
       )}
+
+      {/* Add Worker Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Worker</Text>
+              <Pressable onPress={handleCloseModal} style={styles.modalCloseButton}>
+                <X size={24} color={GRAY[500]} />
+              </Pressable>
+            </View>
+
+            <View style={styles.modalDivider} />
+
+            {/* Modal Content */}
+            <ScrollView
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Full Name & Email Row */}
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>
+                    Full Name <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="Enter full name"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.fullName}
+                    onChangeText={(text) => updateFormField('fullName', text)}
+                    autoCapitalize="words"
+                  />
+                </View>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>
+                    Email <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="worker@company.com"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.email}
+                    onChangeText={(text) => updateFormField('email', text)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
+
+              {/* Phone Number & Position/Trade Row */}
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>Phone Number</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="+1 (555) 123-4567"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.phoneNumber}
+                    onChangeText={(text) => updateFormField('phoneNumber', text)}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <View style={styles.formFieldHalf}>
+                  <Text style={styles.formLabel}>Position/Trade</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., Electrician, Plumber"
+                    placeholderTextColor={GRAY[400]}
+                    value={formData.position}
+                    onChangeText={(text) => updateFormField('position', text)}
+                    autoCapitalize="words"
+                  />
+                </View>
+              </View>
+
+              {/* Job Site Row */}
+              <View style={styles.formFieldFull}>
+                <Text style={styles.formLabel}>Job Site (Optional)</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., Site A, Building 2"
+                  placeholderTextColor={GRAY[400]}
+                  value={formData.jobSite}
+                  onChangeText={(text) => updateFormField('jobSite', text)}
+                  autoCapitalize="words"
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalDivider} />
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <Pressable onPress={handleCloseModal} style={styles.cancelButton}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSubmitWorker}
+                style={[
+                  styles.submitButton,
+                  addWorkerMutation.isPending && styles.submitButtonDisabled,
+                ]}
+                disabled={addWorkerMutation.isPending}
+              >
+                {addWorkerMutation.isPending ? (
+                  <Text style={styles.submitButtonText}>Adding...</Text>
+                ) : (
+                  <Text style={styles.submitButtonText}>Add Worker</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Toast */}
+      <Toast {...toastConfig} onDismiss={hideToast} />
     </SafeAreaView>
   );
 }
@@ -389,13 +675,26 @@ const styles = StyleSheet.create({
     borderBottomColor: SEMANTIC.border.light,
     backgroundColor: '#fff',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: SEMANTIC.text.primary,
   },
   headerAddButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -643,5 +942,107 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing[4],
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing[4],
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing[1],
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: SEMANTIC.border.light,
+  },
+  modalContent: {
+    padding: spacing[4],
+    maxHeight: 400,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    marginBottom: spacing[4],
+  },
+  formFieldHalf: {
+    flex: 1,
+  },
+  formFieldFull: {
+    marginBottom: spacing[4],
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: SEMANTIC.text.primary,
+    marginBottom: spacing[2],
+  },
+  requiredStar: {
+    color: '#EF4444',
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: SEMANTIC.border.default,
+    borderRadius: 8,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+    fontSize: 15,
+    color: SEMANTIC.text.primary,
+    backgroundColor: '#fff',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    padding: spacing[4],
+    gap: spacing[3],
+  },
+  cancelButton: {
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: SEMANTIC.text.secondary,
+  },
+  submitButton: {
+    backgroundColor: CONSTRUCTION_PRIMARY,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[5],
+    borderRadius: 8,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

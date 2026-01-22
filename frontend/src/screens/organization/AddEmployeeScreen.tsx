@@ -28,6 +28,8 @@ import {
   CheckCircle,
   Info,
   UserPlus,
+  Building2,
+  Briefcase,
 } from 'lucide-react-native';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
@@ -55,6 +57,8 @@ const addEmployeeSchema = z.object({
       (val) => !val || /^[\d\s\-+()]{10,}$/.test(val),
       'Please enter a valid phone number'
     ),
+  department: z.string().optional(),
+  position: z.string().optional(),
 });
 
 type AddEmployeeFormData = z.infer<typeof addEmployeeSchema>;
@@ -81,6 +85,8 @@ export default function AddEmployeeScreen() {
       fullName: '',
       email: '',
       phoneNumber: '',
+      department: '',
+      position: '',
     },
   });
 
@@ -91,6 +97,8 @@ export default function AddEmployeeScreen() {
         fullName: data.fullName,
         email: data.email,
         phoneNumber: data.phoneNumber || undefined,
+        department: data.department || undefined,
+        position: data.position || undefined,
       }),
     onSuccess: (_, variables) => {
       // Invalidate employees query to refresh list
@@ -101,7 +109,22 @@ export default function AddEmployeeScreen() {
       setShowSuccessModal(true);
     },
     onError: (error: any) => {
-      showError(error.message || `Failed to add ${dashboardConfig.terminology.user.toLowerCase()}`);
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = `Unable to add ${dashboardConfig.terminology.user.toLowerCase()}. Please try again.`;
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to add team members.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('already exists') || message.includes('duplicate') || message.includes('already a member')) {
+        friendlyMessage = 'This email address is already registered in your organization.';
+      } else if (message.includes('invalid email')) {
+        friendlyMessage = 'Please enter a valid email address.';
+      } else if (message.includes('organization not found')) {
+        friendlyMessage = 'Organization not found. Please try again later.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
@@ -216,8 +239,8 @@ export default function AddEmployeeScreen() {
                 name="phoneNumber"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Input
-                    label="Phone Number"
-                    placeholder="Enter phone number (optional)"
+                    label="Phone Number (Optional)"
+                    placeholder="+1 (555) 123-4567"
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
@@ -225,6 +248,42 @@ export default function AddEmployeeScreen() {
                     keyboardType="phone-pad"
                     autoComplete="tel"
                     leftIcon={<Phone size={20} color={SEMANTIC.text.tertiary} />}
+                  />
+                )}
+              />
+
+              {/* Department */}
+              <Controller
+                control={control}
+                name="department"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Department (Optional)"
+                    placeholder="e.g., Sales, IT, HR"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.department?.message}
+                    autoCapitalize="words"
+                    leftIcon={<Building2 size={20} color={SEMANTIC.text.tertiary} />}
+                  />
+                )}
+              />
+
+              {/* Position */}
+              <Controller
+                control={control}
+                name="position"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Position (Optional)"
+                    placeholder="e.g., Manager, Developer"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.position?.message}
+                    autoCapitalize="words"
+                    leftIcon={<Briefcase size={20} color={SEMANTIC.text.tertiary} />}
                   />
                 )}
               />

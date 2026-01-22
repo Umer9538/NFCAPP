@@ -3,7 +3,7 @@
  * User authentication with email/password and biometric options
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   Pressable,
   SafeAreaView,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,6 +49,71 @@ export default function LoginScreen() {
   const [biometricType, setBiometricType] = useState<BiometricType | null>(null);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [autoTriggered, setAutoTriggered] = useState(false);
+
+  // Animation values
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(20)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(30)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+
+  // Run entrance animations
+  useEffect(() => {
+    const animationSequence = Animated.stagger(150, [
+      // Logo animation - scale and fade
+      Animated.parallel([
+        Animated.spring(logoScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Header text animation
+      Animated.parallel([
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Form card animation
+      Animated.parallel([
+        Animated.timing(formOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(formTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Footer animation
+      Animated.timing(footerOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animationSequence.start();
+  }, []);
 
   const {
     control,
@@ -178,7 +245,31 @@ export default function LoginScreen() {
         // Navigation handled by RootNavigator
       }
     } catch (err: any) {
-      showError(err?.message || 'Login failed. Please try again.');
+      // Check if error is about email verification
+      if (err?.requiresEmailVerification && err?.userId) {
+        Alert.alert(
+          'Email Verification Required',
+          'Please verify your email before signing in. Check your inbox for the verification code.',
+          [
+            {
+              text: 'Verify Email',
+              onPress: () => {
+                navigation.navigate('VerifyEmail', {
+                  email: data.email,
+                  userId: err.userId,
+                });
+              },
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        // The authStore already provides human-readable messages
+        showError(err?.message || 'Unable to sign in. Please check your credentials and try again.');
+      }
     }
   };
 
@@ -196,16 +287,37 @@ export default function LoginScreen() {
         >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
+          <Animated.View
+            style={[
+              styles.logoContainer,
+              {
+                opacity: logoOpacity,
+                transform: [{ scale: logoScale }],
+              },
+            ]}
+          >
             <Ionicons name="medical" size={64} color={PRIMARY[600]} />
-          </View>
-          <Text style={[text.h2, styles.title]}>Welcome Back</Text>
-          <Text style={[text.bodySmall, styles.subtitle]}>
-            Sign in to access your emergency profile
-          </Text>
+          </Animated.View>
+          <Animated.View
+            style={{
+              opacity: headerOpacity,
+              transform: [{ translateY: headerTranslateY }],
+            }}
+          >
+            <Text style={[text.h2, styles.title]}>Welcome Back</Text>
+            <Text style={[text.bodySmall, styles.subtitle]}>
+              Sign in to access your emergency profile
+            </Text>
+          </Animated.View>
         </View>
 
         {/* Login Form */}
+        <Animated.View
+          style={{
+            opacity: formOpacity,
+            transform: [{ translateY: formTranslateY }],
+          }}
+        >
         <Card variant="elevated" padding="lg">
           <View style={styles.form}>
             {/* Email Input */}
@@ -322,14 +434,15 @@ export default function LoginScreen() {
             )}
           </View>
         </Card>
+        </Animated.View>
 
         {/* Sign Up Link */}
-        <View style={styles.signupContainer}>
+        <Animated.View style={[styles.signupContainer, { opacity: footerOpacity }]}>
           <Text style={styles.signupText}>Don't have an account? </Text>
           <Pressable onPress={() => navigation.navigate('AccountType')}>
             <Text style={styles.signupLink}>Sign Up</Text>
           </Pressable>
-        </View>
+        </Animated.View>
         </ScrollView>
 
         {/* Toast */}

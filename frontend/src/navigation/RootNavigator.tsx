@@ -12,8 +12,9 @@ import type { RootStackParamList } from './types';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import { OnboardingScreen } from '@/screens/onboarding';
+import ProfileSetupScreen from '@/screens/onboarding/ProfileSetupScreen';
 import AppSplashScreen from '@/screens/SplashScreen';
-import { useAuthStore, selectIsAuthenticated, selectIsLoading } from '@/store/authStore';
+import { useAuthStore, selectIsAuthenticated, selectIsLoading, selectUser } from '@/store/authStore';
 import { linking } from './linking';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -33,6 +34,7 @@ export const useOnboarding = () => useContext(OnboardingContext);
 export default function RootNavigator() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const isLoading = useAuthStore(selectIsLoading);
+  const user = useAuthStore(selectUser);
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [splashComplete, setSplashComplete] = useState(false);
@@ -111,8 +113,15 @@ export default function RootNavigator() {
         {!isAuthenticated ? (
           // Unauthenticated user sees auth screens
           <Stack.Screen name="Auth" component={AuthNavigator} />
+        ) : isAuthenticated && user && user.profileComplete === false ? (
+          // Authenticated but profile not complete - must complete setup first
+          <Stack.Screen
+            name="ProfileSetup"
+            component={ProfileSetupScreen}
+            initialParams={{ email: user.email, userId: user.id }}
+          />
         ) : (
-          // Authenticated user sees app screens
+          // Authenticated user with complete profile sees app screens
           <Stack.Screen name="Main" component={AppNavigator} />
         )}
       </Stack.Navigator>

@@ -284,6 +284,27 @@ const styles = StyleSheet.create({
 });
 
 /**
+ * Messages to suppress in production (auth errors handled by logout)
+ */
+const SUPPRESSED_MESSAGES = [
+  '401',
+  'unauthorized',
+  'session has expired',
+  'please log in again',
+  'token expired',
+  'invalid token',
+  'authentication required',
+];
+
+/**
+ * Check if a message should be suppressed
+ */
+function shouldSuppressMessage(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return SUPPRESSED_MESSAGES.some(suppressed => lowerMessage.includes(suppressed));
+}
+
+/**
  * Toast Manager Hook (optional helper)
  */
 export function useToast() {
@@ -302,9 +323,16 @@ export function useToast() {
   const showToast = (
     message: string,
     variant: ToastVariant = 'info',
-    duration = 3000
+    duration?: number
   ) => {
-    setToastConfig({ visible: true, message, variant, duration });
+    // Suppress certain error messages in production (401 auth errors)
+    if (variant === 'error' && shouldSuppressMessage(message)) {
+      return;
+    }
+
+    // Default durations: errors show longer so users can read them
+    const defaultDuration = variant === 'error' ? 5000 : variant === 'warning' ? 4000 : 3000;
+    setToastConfig({ visible: true, message, variant, duration: duration ?? defaultDuration });
   };
 
   const hideToast = () => {
@@ -312,16 +340,36 @@ export function useToast() {
   };
 
   const success = (message: string, duration?: number) =>
-    showToast(message, 'success', duration);
+    showToast(message, 'success', duration ?? 3000);
 
   const error = (message: string, duration?: number) =>
-    showToast(message, 'error', duration);
+    showToast(message, 'error', duration ?? 5000); // Errors show for 5 seconds
 
   const warning = (message: string, duration?: number) =>
-    showToast(message, 'warning', duration);
+    showToast(message, 'warning', duration ?? 4000);
 
   const info = (message: string, duration?: number) =>
-    showToast(message, 'info', duration);
+    showToast(message, 'info', duration ?? 3000);
+
+  /**
+   * Handle API error - only shows toast for non-auth errors
+   * Use this instead of directly calling error() for API responses
+   */
+  const handleApiError = (err: any, fallbackMessage?: string) => {
+    // Don't show toast for 401 errors (user will be logged out)
+    if (err?.status === 401 || err?.code === 'HTTP_401') {
+      return;
+    }
+
+    const message = err?.message || fallbackMessage || 'Something went wrong. Please try again.';
+
+    // Skip if the message indicates an auth error
+    if (shouldSuppressMessage(message)) {
+      return;
+    }
+
+    error(message);
+  };
 
   return {
     toastConfig,
@@ -331,5 +379,6 @@ export function useToast() {
     error,
     warning,
     info,
+    handleApiError,
   };
 }

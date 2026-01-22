@@ -73,7 +73,7 @@ export default function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to mark as read');
+      showError(error?.message || 'Unable to mark notification as read. Please try again.');
     },
   });
 
@@ -82,10 +82,10 @@ export default function NotificationsScreen() {
     mutationFn: deleteNotification,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      success('Notification deleted');
+      success('Notification has been removed.');
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to delete notification');
+      showError(error?.message || 'Unable to delete notification. Please try again.');
     },
   });
 
@@ -94,10 +94,10 @@ export default function NotificationsScreen() {
     mutationFn: markAllAsRead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      success('All notifications marked as read');
+      success('All notifications have been marked as read.');
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to mark all as read');
+      showError(error?.message || 'Unable to mark all as read. Please try again.');
     },
   });
 
@@ -106,10 +106,10 @@ export default function NotificationsScreen() {
     mutationFn: deleteAllNotifications,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      success('All notifications deleted');
+      success('All notifications have been cleared.');
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to delete all notifications');
+      showError(error?.message || 'Unable to clear notifications. Please try again.');
     },
   });
 

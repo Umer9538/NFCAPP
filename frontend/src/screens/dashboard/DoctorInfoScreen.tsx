@@ -13,7 +13,9 @@ import {
   Platform,
   Linking,
   Pressable,
+  SafeAreaView,
 } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -96,12 +98,12 @@ export default function DoctorInfoScreen() {
   const updateDoctorMutation = useMutation({
     mutationFn: contactsApi.updateDoctorInfo,
     onSuccess: () => {
-      success('Doctor information updated successfully');
+      success('Doctor information has been saved.');
       queryClient.invalidateQueries({ queryKey: ['doctorInfo'] });
       setIsEditing(false);
     },
     onError: () => {
-      showError('Failed to update doctor information');
+      showError('Unable to save doctor information. Please try again.');
     },
   });
 
@@ -112,18 +114,18 @@ export default function DoctorInfoScreen() {
         if (supported) {
           return Linking.openURL(phoneUrl);
         } else {
-          showError('Phone calls are not supported on this device');
+          showError('Your device does not support phone calls.');
         }
       })
       .catch(() => {
-        showError('Failed to make call');
+        showError('Unable to make call. Please try again.');
       });
   };
 
   const handleEmail = (email: string) => {
     const emailUrl = `mailto:${email}`;
     Linking.openURL(emailUrl).catch(() => {
-      showError('Failed to open email');
+      showError('Unable to open email app. Please try again.');
     });
   };
 
@@ -187,7 +189,7 @@ export default function DoctorInfoScreen() {
 
   const handleSubmit = () => {
     if (!validateForm()) {
-      showError('Please fix the errors in the form');
+      showError('Please check the form and correct any errors.');
       return;
     }
 
@@ -230,7 +232,7 @@ export default function DoctorInfoScreen() {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={64} color={STATUS.error} />
-        <Text style={styles.errorText}>Failed to load doctor information</Text>
+        <Text style={styles.errorText}>Unable to load doctor information. Please check your connection and try again.</Text>
       </View>
     );
   }
@@ -264,18 +266,32 @@ export default function DoctorInfoScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      {/* Navigation Header */}
+      <View style={styles.navHeader}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
+        <Text style={styles.navTitle}>Doctor Info</Text>
+        <View style={styles.navSpacer} />
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Ionicons name="medical" size={32} color={PRIMARY[600]} />
           </View>
@@ -482,8 +498,9 @@ export default function DoctorInfoScreen() {
         )}
       </ScrollView>
 
-      <Toast {...toastConfig} onDismiss={hideToast} />
-    </KeyboardAvoidingView>
+        <Toast {...toastConfig} onDismiss={hideToast} />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -500,6 +517,35 @@ function getMockDoctorInfo(): DoctorInfo {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  navHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.light,
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  navSpacer: {
+    width: 40,
+  },
   container: {
     flex: 1,
     backgroundColor: SEMANTIC.background.default,

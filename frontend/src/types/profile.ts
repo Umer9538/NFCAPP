@@ -42,6 +42,11 @@ export interface MedicalProfile {
   id: string;
   userId: string;
 
+  // User Info (from user table)
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+
   // Basic Information
   bloodType?: BloodType | string | null;
   height?: number | null; // in cm
@@ -67,15 +72,28 @@ export interface MedicalProfile {
   updatedAt: string;
 }
 
+/**
+ * Request body for updating medical profile - matches backend schema
+ */
 export interface UpdateProfileRequest {
-  bloodType?: BloodType;
-  height?: number;
-  weight?: number;
-  dateOfBirth?: string;
-  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
-  emergencyNotes?: string;
-  isOrganDonor?: boolean;
-  hasDNR?: boolean;
+  medicalProfile: {
+    bloodType: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+    height: string;  // e.g., "180cm"
+    weight: string;  // e.g., "75kg"
+    isOrganDonor: boolean;
+    hasDNR: boolean;
+    allergies: Array<{ allergen: string; severity: string; reaction: string }>;
+    medicalConditions: string[];
+    medications: Array<{ name: string; dosage: string; frequency: string }>;
+    emergencyNotes?: string;
+  };
+  emergencyContacts: Array<{
+    id?: string;
+    name: string;
+    relation: string;
+    phone: string;
+    email?: string;
+  }>;
 }
 
 export interface AddAllergyRequest {

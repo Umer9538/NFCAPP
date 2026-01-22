@@ -26,8 +26,9 @@ export type AuthStackParamList = {
   Signup: { accountType?: AccountType };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
-  VerifyEmail: { email: string };
+  VerifyEmail: { email: string; userId?: string };
   TwoFactorAuth: { email: string; tempToken: string };
+  ProfileSetup: { email: string; userId?: string; accountType?: AccountType };
 };
 
 /**
@@ -47,6 +48,7 @@ export type DashboardTabParamList = {
 export type OrganizationTabParamList = {
   Home: undefined;
   Employees: undefined;
+  More: undefined; // Education dashboard consolidated menu
   MedicalInfo: undefined;
   IncidentReports: undefined;
   OSHACompliance: undefined;
@@ -106,6 +108,9 @@ export type AppStackParamList = {
   QRCodeGenerator: { profileId: string };
   Bracelet: undefined;
 
+  // Notifications
+  Notifications: undefined;
+
   // Account & Settings
   AccountSettings: undefined;
   EditProfile: undefined;
@@ -135,6 +140,7 @@ export type AppStackParamList = {
   SetupOrganization: undefined;
   OrganizationSettings: undefined;
   Employees: undefined;
+  Students: undefined;
   AddEmployee: { employeeId?: string; type?: 'employee' | 'worker' | 'student' };
   EmployeeDetails: { employeeId: string };
   MedicalRecords: undefined;
@@ -142,6 +148,18 @@ export type AppStackParamList = {
   CreateIncidentReport: undefined;
   IncidentReportDetails: { reportId: string };
   EditIncidentReport: { reportId: string };
+
+  // Education specific (accessible from More menu)
+  Teachers: undefined;
+  Parents: undefined;
+  EmergencyNotifications: undefined;
+  Location: undefined;
+  Settings: undefined;
+  MedicalInfo: undefined;
+
+  // Construction specific (accessible from More menu)
+  TrainingRecords: undefined;
+  OSHACompliance: undefined;
 };
 
 /**
@@ -151,6 +169,7 @@ export type RootStackParamList = {
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<AppStackParamList>;
+  ProfileSetup: { email: string; userId?: string; accountType?: AccountType };
 
   // Global modals (accessible from anywhere)
   EmergencyViewModal: { profileId: string };

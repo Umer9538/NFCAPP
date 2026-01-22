@@ -121,12 +121,23 @@ export default function EmergencyNotificationsScreen() {
     mutationFn: sendEmergencyNotification,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emergencyNotifications'] });
-      Alert.alert('Success', 'Notification sent successfully');
+      Alert.alert('Notification Sent', 'Your notification has been delivered successfully.');
       resetComposeForm();
       setShowComposeModal(false);
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to send notification');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to send notification. Please check your connection and try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to send notifications.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('organization not found')) {
+        friendlyMessage = 'Organization not found. Please try again later.';
+      }
+
+      Alert.alert('Unable to Send', friendlyMessage);
     },
   });
 
@@ -152,11 +163,11 @@ export default function EmergencyNotificationsScreen() {
 
   const handleSendNotification = () => {
     if (!composeTitle.trim()) {
-      Alert.alert('Error', 'Please enter a title');
+      Alert.alert('Title Required', 'Please enter a title for your notification.');
       return;
     }
     if (!composeMessage.trim()) {
-      Alert.alert('Error', 'Please enter a message');
+      Alert.alert('Message Required', 'Please enter the notification message.');
       return;
     }
 

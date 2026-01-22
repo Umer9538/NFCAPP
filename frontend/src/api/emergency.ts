@@ -11,7 +11,7 @@ import type { EmergencyProfile } from '@/types/dashboard';
  * This is a public endpoint that doesn't require authentication
  */
 export async function getEmergencyProfile(braceletId: string): Promise<EmergencyProfile> {
-  return api.get<EmergencyProfile>(`/emergency/${braceletId}`);
+  return api.get<EmergencyProfile>(`/api/emergency/${braceletId}`);
 }
 
 /**
@@ -25,7 +25,7 @@ export async function logProfileAccess(
     userAgent?: string;
   }
 ): Promise<{ message: string }> {
-  return api.post(`/emergency/${braceletId}/access`, metadata);
+  return api.post(`/api/emergency/${braceletId}/access`, metadata);
 }
 
 export const emergencyApi = {

@@ -24,6 +24,7 @@ import {
   Bell,
   UserCog,
   Users2,
+  MoreHorizontal,
 } from 'lucide-react-native';
 
 import type { OrganizationTabParamList } from './types';
@@ -49,6 +50,8 @@ import {
   OSHAComplianceScreen,
   TrainingRecordsScreen,
   EmergencyNotificationsScreen,
+  EducationMoreScreen,
+  ConstructionMoreScreen,
 } from '@/screens/organization';
 
 const Tab = createBottomTabNavigator<OrganizationTabParamList>();
@@ -112,6 +115,8 @@ export default function OrganizationNavigator() {
               return <UserCog size={size} color={color} />;
             case 'Parents':
               return <Users2 size={size} color={color} />;
+            case 'More':
+              return <MoreHorizontal size={size} color={color} />;
             case 'Location':
               return <MapPin size={size} color={color} />;
             case 'Profile':
@@ -168,28 +173,33 @@ export default function OrganizationNavigator() {
         }}
       />
 
-      {/* Employees/Workers/Students - Admin, Supervisor, Teacher, Parent */}
-      {(isUserAdmin ||
-        (accountType === 'construction' && userRole === 'supervisor') ||
-        (accountType === 'education' && (isUserTeacher || isUserParent))) && (
+      {/* Employees - Corporate only (Construction & Education have consolidated More menu) */}
+      {accountType === 'corporate' && isUserAdmin && (
         <Tab.Screen
           name="Employees"
-          component={
-            accountType === 'construction'
-              ? WorkersScreen
-              : accountType === 'education'
-              ? StudentsScreen
-              : EmployeesScreen
-          }
+          component={EmployeesScreen}
           options={{
             headerShown: false,
-            tabBarLabel: getStudentsLabel(),
+            tabBarLabel: 'Employees',
           }}
         />
       )}
 
-      {/* MedicalInfo - Admin only (or Supervisor for construction) */}
-      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
+      {/* Workers - Construction bottom tab (admin & supervisor) */}
+      {accountType === 'construction' &&
+        (isUserAdmin || userRole === 'supervisor') && (
+          <Tab.Screen
+            name="Employees"
+            component={WorkersScreen}
+            options={{
+              headerShown: false,
+              tabBarLabel: 'Workers',
+            }}
+          />
+        )}
+
+      {/* MedicalInfo - Education bottom tab */}
+      {accountType === 'education' && (
         <Tab.Screen
           name="MedicalInfo"
           component={OrganizationMedicalInfoScreen}
@@ -200,8 +210,89 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* Incident Reports - Admin only (or Supervisor for construction) */}
-      {(isUserAdmin || (accountType === 'construction' && userRole === 'supervisor')) && (
+      {/* Location - Education bottom tab */}
+      {accountType === 'education' && (
+        <Tab.Screen
+          name="Location"
+          component={LocationSharingScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Location',
+          }}
+        />
+      )}
+
+      {/* More - Education dashboard consolidated menu */}
+      {accountType === 'education' && (
+        <Tab.Screen
+          name="More"
+          component={EducationMoreScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'More',
+          }}
+        />
+      )}
+
+      {/* More - Construction dashboard consolidated menu (admin/supervisor) */}
+      {accountType === 'construction' &&
+        (isUserAdmin || userRole === 'supervisor') && (
+          <Tab.Screen
+            name="More"
+            component={ConstructionMoreScreen}
+            options={{
+              headerShown: false,
+              tabBarLabel: 'More',
+            }}
+          />
+        )}
+
+      {/* Construction Worker tabs (non-admin, non-supervisor) */}
+      {accountType === 'construction' &&
+        !isUserAdmin &&
+        userRole !== 'supervisor' && (
+          <>
+            <Tab.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{
+                headerShown: false,
+                tabBarLabel: 'My Profile',
+              }}
+            />
+            <Tab.Screen
+              name="Location"
+              component={LocationSharingScreen}
+              options={{
+                headerShown: false,
+                tabBarLabel: 'Location',
+              }}
+            />
+            <Tab.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{
+                headerShown: false,
+                tabBarLabel: 'Settings',
+              }}
+            />
+          </>
+        )}
+
+      {/* MedicalInfo - Corporate Admin only (Construction has it in More) */}
+      {accountType === 'corporate' && isUserAdmin && (
+        <Tab.Screen
+          name="MedicalInfo"
+          component={OrganizationMedicalInfoScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Medical',
+          }}
+        />
+      )}
+
+      {/* Incident Reports - Corporate Admin only (Construction has it in More) */}
+      {accountType === 'corporate' && isUserAdmin && (
         <Tab.Screen
           name="IncidentReports"
           component={IncidentReportsScreen}
@@ -212,78 +303,20 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* OSHA Compliance - Construction Admin only */}
-      {isUserAdmin && accountType === 'construction' && (
+      {/* Location Sharing - Corporate only (Construction & Education have it in More) */}
+      {accountType === 'corporate' && (
         <Tab.Screen
-          name="OSHACompliance"
-          component={OSHAComplianceScreen}
+          name="Location"
+          component={LocationSharingScreen}
           options={{
-            headerShown: false,
-            tabBarLabel: 'OSHA',
+            title: 'Location',
+            tabBarLabel: 'Location',
           }}
         />
       )}
 
-      {/* Training Records - Construction Admin & Supervisor */}
-      {(isUserAdmin || userRole === 'supervisor') && accountType === 'construction' && (
-        <Tab.Screen
-          name="TrainingRecords"
-          component={TrainingRecordsScreen}
-          options={{
-            headerShown: false,
-            tabBarLabel: 'Training',
-          }}
-        />
-      )}
-
-      {/* Emergency Notifications - Education Admin only */}
-      {isUserAdmin && accountType === 'education' && (
-        <Tab.Screen
-          name="EmergencyNotifications"
-          component={EmergencyNotificationsScreen}
-          options={{
-            headerShown: false,
-            tabBarLabel: 'Alerts',
-          }}
-        />
-      )}
-
-      {/* Teachers - Education Admin only */}
-      {isUserAdmin && accountType === 'education' && (
-        <Tab.Screen
-          name="Teachers"
-          component={TeachersScreen}
-          options={{
-            headerShown: false,
-            tabBarLabel: 'Teachers',
-          }}
-        />
-      )}
-
-      {/* Parents - Education Admin only */}
-      {isUserAdmin && accountType === 'education' && (
-        <Tab.Screen
-          name="Parents"
-          component={ParentsScreen}
-          options={{
-            headerShown: false,
-            tabBarLabel: 'Parents',
-          }}
-        />
-      )}
-
-      {/* Location Sharing - Always visible */}
-      <Tab.Screen
-        name="Location"
-        component={LocationSharingScreen}
-        options={{
-          title: 'Location',
-          tabBarLabel: 'Location',
-        }}
-      />
-
-      {/* My Profile - Non-admin users (employees, workers, students, teachers, parents) */}
-      {!isUserAdmin && (
+      {/* My Profile - Corporate non-admin users (Construction & Education have it in More) */}
+      {accountType === 'corporate' && !isUserAdmin && (
         <Tab.Screen
           name="Profile"
           component={ProfileScreen}
@@ -294,15 +327,17 @@ export default function OrganizationNavigator() {
         />
       )}
 
-      {/* Settings - Always visible */}
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          title: 'Settings',
-          tabBarLabel: 'Settings',
-        }}
-      />
+      {/* Settings - Corporate only (Construction & Education have it in More) */}
+      {accountType === 'corporate' && (
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            title: 'Settings',
+            tabBarLabel: 'Settings',
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 }

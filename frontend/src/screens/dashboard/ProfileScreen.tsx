@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Button,
@@ -32,6 +33,7 @@ import {
   LoadingSpinner,
 } from '@/components/ui';
 import { profileApi } from '@/api/profile';
+import { useResponsive } from '@/hooks/useResponsive';
 import type {
   UpdateProfileRequest,
   AddAllergyRequest,
@@ -55,6 +57,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { toastConfig, hideToast, success, error: showError } = useToast();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const { containerPadding, maxContentWidth, fontSize, sp, isTablet, isSmallDevice } = useResponsive();
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showAllergyModal, setShowAllergyModal] = useState(false);
@@ -64,26 +68,60 @@ export default function ProfileScreen() {
     reaction: '',
   });
 
-  // Fetch profile
-  const { data: profile, isLoading } = useQuery({
+  // Fetch profile - no placeholder data, show real data only
+  const { data: profile, isLoading, error: profileError } = useQuery({
     queryKey: ['profile'],
     queryFn: profileApi.getProfile,
-    placeholderData: getMockProfileData(),
   });
 
+  // Handle profile fetch errors with friendly messages
+  React.useEffect(() => {
+    if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      const errorMsg = (profileError as any)?.message || '';
+
+      // Provide user-friendly error messages
+      if (errorMsg.toLowerCase().includes('not found')) {
+        showError('Profile not found. Please complete your profile setup.');
+      } else if (errorMsg.toLowerCase().includes('network') || errorMsg.toLowerCase().includes('connection')) {
+        showError('Unable to load profile. Please check your internet connection.');
+      } else if (errorMsg.toLowerCase().includes('unauthorized') || errorMsg.toLowerCase().includes('session')) {
+        showError('Your session has expired. Please log in again.');
+      } else {
+        showError('Unable to load your profile. Please try again.');
+      }
+    }
+  }, [profileError]);
+
   // Form
-  const { control, handleSubmit, setValue, watch } = useForm<UpdateProfileRequest>({
+  const { control, handleSubmit, setValue, watch, reset } = useForm<UpdateProfileRequest>({
     defaultValues: {
-      bloodType: profile?.bloodType,
-      height: profile?.height,
-      weight: profile?.weight,
-      dateOfBirth: profile?.dateOfBirth,
-      gender: profile?.gender,
-      emergencyNotes: profile?.emergencyNotes,
-      isOrganDonor: profile?.isOrganDonor || false,
-      hasDNR: profile?.hasDNR || false,
+      bloodType: undefined,
+      height: undefined,
+      weight: undefined,
+      dateOfBirth: undefined,
+      gender: undefined,
+      emergencyNotes: '',
+      isOrganDonor: false,
+      hasDNR: false,
     },
   });
+
+  // Reset form when profile data loads
+  React.useEffect(() => {
+    if (profile) {
+      reset({
+        bloodType: profile.bloodType,
+        height: profile.height,
+        weight: profile.weight,
+        dateOfBirth: profile.dateOfBirth,
+        gender: profile.gender,
+        emergencyNotes: profile.emergencyNotes || '',
+        isOrganDonor: profile.isOrganDonor || false,
+        hasDNR: profile.hasDNR || false,
+      });
+    }
+  }, [profile, reset]);
 
   const dateOfBirth = watch('dateOfBirth');
   const emergencyNotes = watch('emergencyNotes');
@@ -92,11 +130,16 @@ export default function ProfileScreen() {
   const updateMutation = useMutation({
     mutationFn: profileApi.updateProfile,
     onSuccess: () => {
-      success('Profile updated successfully!');
+      success('Your profile has been updated!');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
-    onError: () => {
-      showError('Failed to update profile');
+    onError: (error: any) => {
+      const msg = error?.message?.toLowerCase() || '';
+      if (msg.includes('network') || msg.includes('connection')) {
+        showError('Unable to save changes. Please check your internet connection.');
+      } else {
+        showError('Unable to save your profile. Please try again.');
+      }
     },
   });
 
@@ -104,13 +147,18 @@ export default function ProfileScreen() {
   const addAllergyMutation = useMutation({
     mutationFn: profileApi.addAllergy,
     onSuccess: () => {
-      success('Allergy added!');
+      success('Allergy added to your profile!');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       setShowAllergyModal(false);
       setNewAllergy({ allergen: '', severity: 'mild', reaction: '' });
     },
-    onError: () => {
-      showError('Failed to add allergy');
+    onError: (error: any) => {
+      const msg = error?.message?.toLowerCase() || '';
+      if (msg.includes('already')) {
+        showError('This allergy is already in your profile.');
+      } else {
+        showError('Unable to add allergy. Please try again.');
+      }
     },
   });
 
@@ -118,11 +166,11 @@ export default function ProfileScreen() {
   const removeAllergyMutation = useMutation({
     mutationFn: profileApi.removeAllergy,
     onSuccess: () => {
-      success('Allergy removed!');
+      success('Allergy removed from your profile.');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
     onError: () => {
-      showError('Failed to remove allergy');
+      showError('Unable to remove allergy. Please try again.');
     },
   });
 
@@ -130,11 +178,11 @@ export default function ProfileScreen() {
   const removeConditionMutation = useMutation({
     mutationFn: profileApi.removeCondition,
     onSuccess: () => {
-      success('Condition removed!');
+      success('Medical condition removed.');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
     onError: () => {
-      showError('Failed to remove condition');
+      showError('Unable to remove condition. Please try again.');
     },
   });
 
@@ -142,16 +190,47 @@ export default function ProfileScreen() {
   const removeMedicationMutation = useMutation({
     mutationFn: profileApi.removeMedication,
     onSuccess: () => {
-      success('Medication removed!');
+      success('Medication removed from your profile.');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
     onError: () => {
-      showError('Failed to remove medication');
+      showError('Unable to remove medication. Please try again.');
     },
   });
 
-  const onSubmit = (data: UpdateProfileRequest) => {
-    updateMutation.mutate(data);
+  const onSubmit = (data: any) => {
+    // Build request body matching backend schema
+    const requestBody = {
+      medicalProfile: {
+        bloodType: (data.bloodType || profile?.bloodType || 'O+') as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-',
+        height: data.height ? `${data.height}cm` : `${profile?.height || 0}cm`,
+        weight: data.weight ? `${data.weight}kg` : `${profile?.weight || 0}kg`,
+        isOrganDonor: data.isOrganDonor ?? profile?.isOrganDonor ?? false,
+        hasDNR: data.hasDNR ?? profile?.hasDNR ?? false,
+        emergencyNotes: data.emergencyNotes || profile?.emergencyNotes || '',
+        // Include existing arrays from profile
+        allergies: (profile?.allergies || []).map((a: Allergy) => ({
+          allergen: a.allergen,
+          severity: a.severity,
+          reaction: a.reaction,
+        })),
+        medicalConditions: (profile?.conditions || []).map((c: MedicalCondition) => c.name),
+        medications: (profile?.medications || []).map((m: Medication) => ({
+          name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+        })),
+      },
+      emergencyContacts: (profile?.emergencyContacts || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        relation: c.relationship,
+        phone: c.phone,
+        email: c.email || '',
+      })),
+    };
+
+    updateMutation.mutate(requestBody as any);
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -186,14 +265,29 @@ export default function ProfileScreen() {
     return <LoadingSpinner visible text="Loading profile..." />;
   }
 
+  // Responsive styles
+  const responsiveContentStyle = {
+    padding: containerPadding,
+    paddingTop: insets.top + sp(24),
+    paddingBottom: spacing[8],
+    ...(maxContentWidth && {
+      maxWidth: maxContentWidth,
+      alignSelf: 'center' as const,
+      width: '100%' as const,
+    }),
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.contentContainer, responsiveContentStyle]}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Ionicons name="medical" size={32} color={PRIMARY[600]} />
-          <Text style={styles.headerTitle}>Medical Profile</Text>
-          <Text style={styles.headerSubtitle}>
+          <Ionicons name="medical" size={sp(32)} color={PRIMARY[600]} />
+          <Text style={[styles.headerTitle, { fontSize: fontSize(24) }]}>Medical Profile</Text>
+          <Text style={[styles.headerSubtitle, { fontSize: fontSize(14) }]}>
             Keep your medical information up to date
           </Text>
         </View>
@@ -201,8 +295,8 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('EditProfile' as any)}
           style={styles.editButton}
         >
-          <Ionicons name="create-outline" size={24} color={PRIMARY[600]} />
-          <Text style={styles.editButtonText}>Edit Profile</Text>
+          <Ionicons name="create-outline" size={sp(24)} color={PRIMARY[600]} />
+          <Text style={[styles.editButtonText, { fontSize: fontSize(14) }]}>Edit Profile</Text>
         </Pressable>
       </View>
 
@@ -364,7 +458,7 @@ export default function ProfileScreen() {
                       ]}
                     >
                       <Text style={styles.severityText}>
-                        {allergy.severity.toUpperCase()}
+                        {(allergy.severity || 'unknown').toUpperCase()}
                       </Text>
                     </View>
                   </View>
@@ -588,68 +682,7 @@ export default function ProfileScreen() {
   );
 }
 
-// Mock data for development
-function getMockProfileData() {
-  return {
-    id: 'profile-1',
-    userId: 'user-1',
-    bloodType: 'A+' as const,
-    height: 175,
-    weight: 70,
-    dateOfBirth: '1990-05-15T00:00:00.000Z',
-    gender: 'male' as const,
-    conditions: [
-      {
-        id: 'cond-1',
-        name: 'Type 2 Diabetes',
-        diagnosedDate: '2018-03-10T00:00:00.000Z',
-        notes: 'Well controlled with medication',
-      },
-      {
-        id: 'cond-2',
-        name: 'Hypertension',
-        diagnosedDate: '2020-01-15T00:00:00.000Z',
-      },
-    ],
-    allergies: [
-      {
-        id: 'allergy-1',
-        allergen: 'Penicillin',
-        severity: 'severe' as const,
-        reaction: 'Anaphylaxis',
-      },
-      {
-        id: 'allergy-2',
-        allergen: 'Peanuts',
-        severity: 'moderate' as const,
-        reaction: 'Hives and swelling',
-      },
-    ],
-    medications: [
-      {
-        id: 'med-1',
-        name: 'Metformin',
-        dosage: '500mg',
-        frequency: 'Twice daily' as const,
-        prescribedBy: 'Dr. Smith',
-        startDate: '2018-03-10T00:00:00.000Z',
-      },
-      {
-        id: 'med-2',
-        name: 'Lisinopril',
-        dosage: '10mg',
-        frequency: 'Once daily' as const,
-        prescribedBy: 'Dr. Johnson',
-      },
-    ],
-    emergencyNotes:
-      'Deaf in left ear. Please speak on right side. Allergic to latex gloves.',
-    isOrganDonor: true,
-    hasDNR: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-}
+// No mock data - using real data from API only
 
 const styles = StyleSheet.create({
   container: {
@@ -657,8 +690,8 @@ const styles = StyleSheet.create({
     backgroundColor: SEMANTIC.background.default,
   },
   contentContainer: {
-    padding: spacing[4],
-    paddingBottom: spacing[8],
+    flexGrow: 1,
+    // Padding is set dynamically via responsiveContentStyle
   },
   header: {
     marginBottom: spacing[6],

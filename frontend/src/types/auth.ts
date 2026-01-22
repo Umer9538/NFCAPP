@@ -26,6 +26,7 @@ export interface User {
   phoneNumber?: string;
   emailVerified: boolean;
   twoFactorEnabled: boolean;
+  profileComplete?: boolean;
   accountType: AccountType;
   organizationId?: string;
   role?: UserRole;

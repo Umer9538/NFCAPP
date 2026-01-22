@@ -16,6 +16,7 @@ import {
   Platform,
   TouchableOpacity,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -36,7 +37,10 @@ import {
   XCircle,
   RefreshCw,
   Navigation,
+  ArrowLeft,
 } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { AppScreenNavigationProp } from '@/navigation/types';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -53,6 +57,7 @@ import {
 import { API_CONFIG } from '@/constants/config';
 
 export default function LocationSharingScreen() {
+  const navigation = useNavigation<AppScreenNavigationProp>();
   const theme = useTheme();
   const primaryColor = theme.primary[600];
 
@@ -109,7 +114,18 @@ export default function LocationSharingScreen() {
         address,
       });
     } catch (error: any) {
-      setLocationError(error.message || 'Failed to get current location');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t get your location. Please try again.';
+
+      if (errorMessage.includes('permission')) {
+        userMessage = 'Location permission is required. Please enable it in your device settings.';
+      } else if (errorMessage.includes('timeout')) {
+        userMessage = 'Getting your location took too long. Please try again.';
+      } else if (errorMessage.includes('unavailable')) {
+        userMessage = 'Location services are not available. Please check your device settings.';
+      }
+
+      setLocationError(userMessage);
     }
   }, []);
 
@@ -166,7 +182,14 @@ export default function LocationSharingScreen() {
         loadShareHistory();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create location share');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t share your location. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection and try again.';
+      }
+
+      Alert.alert('Unable to Share Location', userMessage);
     } finally {
       setSharingLocation(false);
     }
@@ -175,8 +198,8 @@ export default function LocationSharingScreen() {
   // Show share options modal
   const showShareOptions = (url: string) => {
     Alert.alert(
-      'Location Shared!',
-      'Your location link is ready. How would you like to share it?',
+      'Location Link Ready',
+      'Your location link has been created. How would you like to share it?',
       [
         {
           text: 'Copy Link',
@@ -197,7 +220,7 @@ export default function LocationSharingScreen() {
   // Copy link to clipboard
   const copyToClipboard = async (url: string) => {
     await Clipboard.setStringAsync(url);
-    Alert.alert('Copied!', 'Location link copied to clipboard');
+    Alert.alert('Link Copied', 'The location link has been copied to your clipboard.');
   };
 
   // Share link using native share
@@ -227,7 +250,7 @@ export default function LocationSharingScreen() {
               await deactivateLocationShare(shareToken);
               loadShareHistory();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to deactivate share');
+              Alert.alert('Unable to Deactivate', 'We couldn\'t deactivate this share link. Please try again.');
             }
           },
         },
@@ -276,7 +299,20 @@ export default function LocationSharingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Location Sharing</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -452,8 +488,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SEMANTIC.background.secondary,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.light,
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   scrollContent: {
     padding: spacing[4],
+    paddingTop: spacing[4],
   },
   locationCard: {
     padding: spacing[4],

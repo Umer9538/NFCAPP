@@ -63,11 +63,18 @@ export default function ChangePasswordScreen() {
   const changePasswordMutation = useMutation({
     mutationFn: settingsApi.changePassword,
     onSuccess: () => {
-      success('Password changed successfully');
+      success('Password updated successfully!');
       setTimeout(() => navigation.goBack(), 1500);
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to change password');
+      const message = error?.message?.toLowerCase() || '';
+      if (message.includes('incorrect') || message.includes('wrong') || message.includes('invalid')) {
+        showError('Incorrect password. Please try again.');
+      } else if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to change password. Please try again.');
+      }
     },
   });
 
@@ -133,7 +140,7 @@ export default function ChangePasswordScreen() {
 
   const handleSubmit = () => {
     if (!validateForm()) {
-      showError('Please fix the errors in the form');
+      showError('Please check the form and fix any errors.');
       return;
     }
 

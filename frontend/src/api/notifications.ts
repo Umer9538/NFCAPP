@@ -29,21 +29,21 @@ export interface NotificationListResponse {
  * Register push notification token with backend
  */
 export async function registerPushToken(tokenData: PushNotificationToken): Promise<void> {
-  await api.post('/notifications/register-device', tokenData);
+  await api.post('/api/notifications/register-device', tokenData);
 }
 
 /**
  * Unregister push notification token
  */
 export async function unregisterPushToken(token: string): Promise<void> {
-  await api.post('/notifications/unregister-device', { token });
+  await api.post('/api/notifications/unregister-device', { token });
 }
 
 /**
  * Get notification settings
  */
 export async function getNotificationSettings(): Promise<NotificationSettings> {
-  return await api.get<NotificationSettings>('/notifications/settings');
+  return await api.get<NotificationSettings>('/api/notifications/settings');
 }
 
 /**
@@ -52,7 +52,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 export async function updateNotificationSettings(
   settings: Partial<NotificationSettings>
 ): Promise<NotificationSettings> {
-  return await api.put<NotificationSettings>('/notifications/settings', settings);
+  return await api.put<NotificationSettings>('/api/notifications/settings', settings);
 }
 
 /**
@@ -70,14 +70,14 @@ export async function getNotifications(
   if (type) {
     params.append('type', type);
   }
-  return await api.get<NotificationListResponse>(`/notifications?${params.toString()}`);
+  return await api.get<NotificationListResponse>(`/api/notifications?${params.toString()}`);
 }
 
 /**
  * Get unread notification count
  */
 export async function getUnreadCount(): Promise<number> {
-  const response = await api.get<{ count: number }>('/notifications/unread-count');
+  const response = await api.get<{ count: number }>('/api/notifications/unread-count');
   return response.count;
 }
 
@@ -85,35 +85,35 @@ export async function getUnreadCount(): Promise<number> {
  * Mark notification as read
  */
 export async function markAsRead(notificationId: string): Promise<void> {
-  await api.put(`/notifications/${notificationId}/read`);
+  await api.put(`/api/notifications/${notificationId}/read`);
 }
 
 /**
  * Mark all notifications as read
  */
 export async function markAllAsRead(): Promise<void> {
-  await api.put('/notifications/read-all');
+  await api.put('/api/notifications/read-all');
 }
 
 /**
  * Delete a notification
  */
 export async function deleteNotification(notificationId: string): Promise<void> {
-  await api.delete(`/notifications/${notificationId}`);
+  await api.delete(`/api/notifications/${notificationId}`);
 }
 
 /**
  * Delete all notifications
  */
 export async function deleteAllNotifications(): Promise<void> {
-  await api.delete('/notifications/all');
+  await api.delete('/api/notifications/all');
 }
 
 /**
  * Test push notification (for development)
  */
 export async function sendTestNotification(type: NotificationType): Promise<void> {
-  await api.post('/notifications/test', { type });
+  await api.post('/api/notifications/test', { type });
 }
 
 export const notificationsApi = {

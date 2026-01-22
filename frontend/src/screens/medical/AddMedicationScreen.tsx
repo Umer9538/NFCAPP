@@ -127,13 +127,22 @@ export default function AddMedicationScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['medications'] });
-      success('Medication added successfully');
+      success('Added to your profile!');
       setTimeout(() => {
         navigation.goBack();
       }, 1000);
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to add medication');
+      const message = error.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else if (message.includes('already exists') || message.includes('duplicate')) {
+        showError('This medication is already in your profile.');
+      } else if (message.includes('validation') || message.includes('invalid')) {
+        showError('Please check your entries and try again.');
+      } else {
+        showError('Unable to add medication. Please try again.');
+      }
     },
   });
 

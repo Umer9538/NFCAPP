@@ -11,8 +11,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Pressable,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
@@ -20,9 +20,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft,
   AlertTriangle,
   Activity,
+  ArrowLeft,
 } from 'lucide-react-native';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
@@ -95,13 +95,22 @@ export default function AddAllergyScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['allergies'] });
-      success('Allergy added successfully');
+      success('Added to your profile!');
       setTimeout(() => {
         navigation.goBack();
       }, 1000);
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to add allergy');
+      const message = error.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connection')) {
+        showError('Unable to connect. Please check your internet.');
+      } else if (message.includes('already exists') || message.includes('duplicate')) {
+        showError('This allergy is already in your profile.');
+      } else if (message.includes('validation') || message.includes('invalid')) {
+        showError('Please check your entries and try again.');
+      } else {
+        showError('Unable to add allergy. Please try again.');
+      }
     },
   });
 
@@ -109,34 +118,33 @@ export default function AddAllergyScreen() {
     addAllergyMutation.mutate(data);
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={handleBack} style={styles.backButton}>
-            <ArrowLeft size={24} color={SEMANTIC.text.primary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>
-            {isEditing ? 'Edit Allergy' : 'Add Allergy'}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          {/* Warning Banner */}
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Allergy' : 'Add Allergy'}</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <View style={styles.container}>
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Warning Banner */}
           <View style={styles.warningBanner}>
             <AlertTriangle size={20} color={STATUS.error.main} />
             <Text style={styles.warningText}>
@@ -286,20 +294,18 @@ export default function AddAllergyScreen() {
         {/* Toast */}
         <Toast {...toastConfig} onDismiss={hideToast} />
 
-        {/* Loading Overlay */}
-        {addAllergyMutation.isPending && <LoadingSpinner visible overlay />}
-      </KeyboardAvoidingView>
+          {/* Loading Overlay */}
+          {addAllergyMutation.isPending && <LoadingSpinner visible overlay />}
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: SEMANTIC.background.default,
-  },
-  keyboardView: {
-    flex: 1,
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -312,16 +318,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backButton: {
-    padding: spacing[2],
-    marginLeft: -spacing[2],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: SEMANTIC.text.primary,
   },
   headerSpacer: {
     width: 40,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: SEMANTIC.background.default,
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,

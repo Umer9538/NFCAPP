@@ -56,11 +56,11 @@ export default function QRScannerScreen() {
       if (result.valid) {
         // Show success feedback
         Alert.alert(
-          'QR Code Scanned',
-          'Emergency profile found. Opening now...',
+          'Profile Found!',
+          'Emergency profile detected. Opening now...',
           [
             {
-              text: 'OK',
+              text: 'View Profile',
               onPress: () => {
                 // Navigate to emergency profile
                 if (result.profileId) {
@@ -75,8 +75,8 @@ export default function QRScannerScreen() {
       } else {
         // Invalid QR code
         Alert.alert(
-          'Invalid QR Code',
-          result.error || 'This is not a valid MedGuard QR code.',
+          'Unrecognized QR Code',
+          result.error || 'This QR code is not from MedGuard. Please scan a valid emergency profile code.',
           [
             {
               text: 'Try Again',
@@ -96,8 +96,8 @@ export default function QRScannerScreen() {
     } catch (error) {
       console.error('QR scan error:', error);
       Alert.alert(
-        'Scan Error',
-        'Failed to process QR code. Please try again.',
+        'Unable to Scan',
+        'We could not process the QR code. Please try again.',
         [
           {
             text: 'Try Again',
@@ -125,12 +125,12 @@ export default function QRScannerScreen() {
       try {
         url = new URL(data);
       } catch {
-        return { valid: false, error: 'Not a valid URL' };
+        return { valid: false, error: 'The scanned code is not a valid link.' };
       }
 
       // Check if it's a MedGuard URL
       if (!url.hostname.includes('medguard')) {
-        return { valid: false, error: 'Not a MedGuard URL' };
+        return { valid: false, error: 'This is not a MedGuard emergency profile.' };
       }
 
       // Parse emergency profile URL
@@ -140,7 +140,7 @@ export default function QRScannerScreen() {
       const emergencyIndex = pathParts.findIndex((part) => part === 'emergency');
 
       if (emergencyIndex === -1 || emergencyIndex >= pathParts.length - 1) {
-        return { valid: false, error: 'Invalid emergency profile URL' };
+        return { valid: false, error: 'This link does not contain a valid emergency profile.' };
       }
 
       const profileId = pathParts[emergencyIndex + 1];
@@ -153,7 +153,7 @@ export default function QRScannerScreen() {
       };
     } catch (error) {
       console.error('Parse error:', error);
-      return { valid: false, error: 'Failed to parse QR code' };
+      return { valid: false, error: 'Unable to read QR code. Please try again.' };
     }
   };
 

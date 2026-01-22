@@ -14,6 +14,8 @@ import {
   Pressable,
   SafeAreaView,
   TextInput,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -77,6 +79,86 @@ export default function ForgotPasswordScreen() {
   // OTP input refs
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
 
+  // Animation values
+  const iconScale = useRef(new Animated.Value(0)).current;
+  const iconOpacity = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(20)).current;
+  const stepIndicatorOpacity = useRef(new Animated.Value(0)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(30)).current;
+  const helpOpacity = useRef(new Animated.Value(0)).current;
+
+  // Run entrance animations
+  useEffect(() => {
+    // Reset animations for new step
+    iconScale.setValue(0);
+    iconOpacity.setValue(0);
+    headerOpacity.setValue(0);
+    headerTranslateY.setValue(20);
+    formOpacity.setValue(0);
+    formTranslateY.setValue(30);
+
+    const animationSequence = Animated.stagger(100, [
+      // Icon animation - scale and fade
+      Animated.parallel([
+        Animated.spring(iconScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(iconOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Header text animation
+      Animated.parallel([
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Step indicator animation
+      Animated.timing(stepIndicatorOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      // Form card animation
+      Animated.parallel([
+        Animated.timing(formOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(formTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Help text animation
+      Animated.timing(helpOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animationSequence.start();
+  }, [step]);
+
   // Email form
   const emailForm = useForm<EmailFormData>({
     resolver: zodResolver(emailSchema),
@@ -128,10 +210,17 @@ export default function ForgotPasswordScreen() {
       authApi.verifyResetCode({ email, code }),
     onSuccess: () => {
       setStep('password');
-      success('Code verified successfully');
+      success('Code verified! Create your new password.');
     },
     onError: (error: any) => {
-      showError(error.message || 'Invalid verification code');
+      const msg = (error?.message || '').toLowerCase();
+      if (msg.includes('invalid') || msg.includes('incorrect') || msg.includes('wrong')) {
+        showError('Invalid code. Please check and try again.');
+      } else if (msg.includes('expired')) {
+        showError('This code has expired. Please request a new one.');
+      } else {
+        showError('Unable to verify code. Please try again.');
+      }
     },
   });
 
@@ -145,13 +234,22 @@ export default function ForgotPasswordScreen() {
         confirmPassword: data.confirmPassword,
       }),
     onSuccess: () => {
-      success('Password reset successfully!');
+      success('Password reset! You can now sign in.');
       setTimeout(() => {
         navigation.navigate('Login');
       }, 1500);
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to reset password');
+      const msg = (error?.message || '').toLowerCase();
+      if (msg.includes('password') && msg.includes('same')) {
+        showError('Please choose a different password than your previous one.');
+      } else if (msg.includes('expired') || msg.includes('invalid code')) {
+        showError('Your reset session has expired. Please start over.');
+      } else if (msg.includes('weak') || msg.includes('strong')) {
+        showError('Password is too weak. Please use a stronger password.');
+      } else {
+        showError('Unable to reset password. Please try again.');
+      }
     },
   });
 
@@ -270,24 +368,46 @@ export default function ForgotPasswordScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
+            <Animated.View
+              style={[
+                styles.iconContainer,
+                {
+                  opacity: iconOpacity,
+                  transform: [{ scale: iconScale }],
+                },
+              ]}
+            >
               <Ionicons name={getStepIcon()} size={64} color={PRIMARY[600]} />
-            </View>
-            <Text style={[text.h2, styles.title]}>{getStepTitle()}</Text>
-            <Text style={[text.bodySmall, styles.subtitle]}>{getStepSubtitle()}</Text>
+            </Animated.View>
+            <Animated.View
+              style={{
+                opacity: headerOpacity,
+                transform: [{ translateY: headerTranslateY }],
+                alignItems: 'center',
+              }}
+            >
+              <Text style={[text.h2, styles.title]}>{getStepTitle()}</Text>
+              <Text style={[text.bodySmall, styles.subtitle]}>{getStepSubtitle()}</Text>
+            </Animated.View>
 
             {/* Step indicator */}
-            <View style={styles.stepIndicator}>
+            <Animated.View style={[styles.stepIndicator, { opacity: stepIndicatorOpacity }]}>
               <View style={[styles.stepDot, step === 'email' && styles.stepDotActive]} />
               <View style={styles.stepLine} />
               <View style={[styles.stepDot, step === 'otp' && styles.stepDotActive]} />
               <View style={styles.stepLine} />
               <View style={[styles.stepDot, step === 'password' && styles.stepDotActive]} />
-            </View>
+            </Animated.View>
           </View>
 
           {/* Step 1: Email */}
           {step === 'email' && (
+            <Animated.View
+              style={{
+                opacity: formOpacity,
+                transform: [{ translateY: formTranslateY }],
+              }}
+            >
             <Card variant="elevated" padding="lg">
               <View style={styles.form}>
                 <Controller
@@ -331,10 +451,17 @@ export default function ForgotPasswordScreen() {
                 </Pressable>
               </View>
             </Card>
+            </Animated.View>
           )}
 
           {/* Step 2: OTP */}
           {step === 'otp' && (
+            <Animated.View
+              style={{
+                opacity: formOpacity,
+                transform: [{ translateY: formTranslateY }],
+              }}
+            >
             <Card variant="elevated" padding="lg">
               <View style={styles.form}>
                 {/* OTP Input */}
@@ -397,10 +524,17 @@ export default function ForgotPasswordScreen() {
                 </Pressable>
               </View>
             </Card>
+            </Animated.View>
           )}
 
           {/* Step 3: New Password */}
           {step === 'password' && (
+            <Animated.View
+              style={{
+                opacity: formOpacity,
+                transform: [{ translateY: formTranslateY }],
+              }}
+            >
             <Card variant="elevated" padding="lg">
               <View style={styles.form}>
                 {/* New Password */}
@@ -495,10 +629,11 @@ export default function ForgotPasswordScreen() {
                 </Button>
               </View>
             </Card>
+            </Animated.View>
           )}
 
           {/* Help Text */}
-          <View style={styles.helpContainer}>
+          <Animated.View style={[styles.helpContainer, { opacity: helpOpacity }]}>
             <Ionicons
               name="information-circle-outline"
               size={16}
@@ -511,7 +646,7 @@ export default function ForgotPasswordScreen() {
                 ? 'The code expires in 10 minutes'
                 : 'Choose a password you have not used before'}
             </Text>
-          </View>
+          </Animated.View>
         </ScrollView>
 
         {/* Toast */}

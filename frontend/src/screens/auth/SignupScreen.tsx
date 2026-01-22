@@ -3,7 +3,7 @@
  * User registration with password strength indicator
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,6 +53,71 @@ export default function SignupScreen() {
     score: number;
     feedback: string[];
   } | null>(null);
+
+  // Animation values
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(20)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(30)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+
+  // Run entrance animations
+  useEffect(() => {
+    const animationSequence = Animated.stagger(100, [
+      // Logo animation - scale and fade
+      Animated.parallel([
+        Animated.spring(logoScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Header text animation
+      Animated.parallel([
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Form card animation
+      Animated.parallel([
+        Animated.timing(formOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(formTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Footer animation
+      Animated.timing(footerOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animationSequence.start();
+  }, []);
 
   const {
     control,
@@ -102,12 +169,14 @@ export default function SignupScreen() {
 
       success('Account created! Please verify your email.');
 
-      // Navigate to email verification
+      // Navigate to email verification with userId for profile setup later
       navigation.navigate('VerifyEmail', {
         email: data.email,
+        userId: response.user?.id,
       });
     } catch (err: any) {
-      showError(err?.message || 'Signup failed. Please try again.');
+      // The authStore already provides human-readable messages
+      showError(err?.message || 'Unable to create account. Please try again.');
     }
   };
 
@@ -164,16 +233,38 @@ export default function SignupScreen() {
         >
         {/* Header */}
         <View style={styles.header}>
-          <View style={[styles.logoContainer, { backgroundColor: `${dashboardConfig.themeColors.primary}15` }]}>
+          <Animated.View
+            style={[
+              styles.logoContainer,
+              { backgroundColor: `${dashboardConfig.themeColors.primary}15` },
+              {
+                opacity: logoOpacity,
+                transform: [{ scale: logoScale }],
+              },
+            ]}
+          >
             <Ionicons name="medical" size={64} color={dashboardConfig.themeColors.primary} />
-          </View>
-          <Text style={[text.h2, styles.title]}>Create Account</Text>
-          <Text style={[text.bodySmall, styles.subtitle]}>
-            Join MedGuard to protect your medical information
-          </Text>
+          </Animated.View>
+          <Animated.View
+            style={{
+              opacity: headerOpacity,
+              transform: [{ translateY: headerTranslateY }],
+            }}
+          >
+            <Text style={[text.h2, styles.title]}>Create Account</Text>
+            <Text style={[text.bodySmall, styles.subtitle]}>
+              Join MedGuard to protect your medical information
+            </Text>
+          </Animated.View>
         </View>
 
         {/* Signup Form */}
+        <Animated.View
+          style={{
+            opacity: formOpacity,
+            transform: [{ translateY: formTranslateY }],
+          }}
+        >
         <Card variant="elevated" padding="lg">
           <View style={styles.form}>
             {/* Account Type Badge */}
@@ -426,14 +517,15 @@ export default function SignupScreen() {
             </Button>
           </View>
         </Card>
+        </Animated.View>
 
         {/* Login Link */}
-        <View style={styles.loginContainer}>
+        <Animated.View style={[styles.loginContainer, { opacity: footerOpacity }]}>
           <Text style={styles.loginText}>Already have an account? </Text>
           <Pressable onPress={() => navigation.navigate('Login')}>
             <Text style={styles.loginLink}>Sign In</Text>
           </Pressable>
-        </View>
+        </Animated.View>
         </ScrollView>
 
         {/* Toast */}

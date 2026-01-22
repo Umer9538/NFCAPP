@@ -83,10 +83,15 @@ export default function NotificationSettingsScreen() {
     mutationFn: updateNotificationSettings,
     onSuccess: (updatedSettings) => {
       queryClient.setQueryData(['notification-settings'], updatedSettings);
-      success('Settings updated');
+      success('Your changes have been saved!');
     },
     onError: (error: any) => {
-      showError(error?.message || 'Failed to update settings');
+      const message = error?.message?.toLowerCase() || '';
+      if (message.includes('network') || message.includes('connect')) {
+        showError('Unable to connect. Please check your internet.');
+      } else {
+        showError('Unable to save changes. Please try again.');
+      }
     },
   });
 

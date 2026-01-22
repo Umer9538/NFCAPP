@@ -160,6 +160,108 @@ interface ApiError {
   status?: number;
   code?: string;
   details?: unknown;
+  // Special fields for email verification flow
+  requiresEmailVerification?: boolean;
+  userId?: string;
+}
+
+/**
+ * Convert technical error messages to human-readable format
+ */
+function humanizeErrorMessage(technicalMessage: string, context?: string): string {
+  const lowerMessage = technicalMessage.toLowerCase();
+
+  // Authentication errors
+  if (lowerMessage.includes('invalid credentials') || lowerMessage.includes('wrong password')) {
+    return 'Incorrect email or password. Please try again.';
+  }
+  if (lowerMessage.includes('user not found') || lowerMessage.includes('no user')) {
+    return 'No account found with this email address.';
+  }
+  if (lowerMessage.includes('email already') || lowerMessage.includes('already registered')) {
+    return 'This email is already registered. Please try logging in instead.';
+  }
+  if (lowerMessage.includes('email not verified')) {
+    return 'Please verify your email address before logging in.';
+  }
+  if (lowerMessage.includes('account suspended') || lowerMessage.includes('suspended')) {
+    return 'Your account has been suspended. Please contact support.';
+  }
+  if (lowerMessage.includes('invalid token') || lowerMessage.includes('token expired')) {
+    return 'Your session has expired. Please log in again.';
+  }
+
+  // Validation errors
+  if (lowerMessage.includes('required') && lowerMessage.includes('field')) {
+    return 'Please fill in all required fields.';
+  }
+  if (lowerMessage.includes('invalid email')) {
+    return 'Please enter a valid email address.';
+  }
+  if (lowerMessage.includes('password') && (lowerMessage.includes('weak') || lowerMessage.includes('short'))) {
+    return 'Password is too weak. Please use at least 8 characters with letters and numbers.';
+  }
+  if (lowerMessage.includes('phone') && lowerMessage.includes('invalid')) {
+    return 'Please enter a valid phone number.';
+  }
+
+  // Organization errors
+  if (lowerMessage.includes('organization not found')) {
+    return 'Organization not found. Please check your details.';
+  }
+  if (lowerMessage.includes('not part of an organization')) {
+    return 'You are not associated with any organization.';
+  }
+  if (lowerMessage.includes('only admin') || lowerMessage.includes('administrator')) {
+    return 'Only administrators can perform this action.';
+  }
+
+  // Profile errors
+  if (lowerMessage.includes('profile not found')) {
+    return 'Profile not found. Please complete your profile setup.';
+  }
+  if (lowerMessage.includes('profile incomplete')) {
+    return 'Please complete your profile before continuing.';
+  }
+
+  // Medical data errors
+  if (lowerMessage.includes('allergy') && lowerMessage.includes('already')) {
+    return 'This allergy has already been added to your profile.';
+  }
+  if (lowerMessage.includes('medication') && lowerMessage.includes('already')) {
+    return 'This medication has already been added to your profile.';
+  }
+
+  // Generic data errors
+  if (lowerMessage.includes('already exists')) {
+    return 'This item already exists. Please try a different one.';
+  }
+  if (lowerMessage.includes('not found')) {
+    return 'The requested item was not found.';
+  }
+  if (lowerMessage.includes('validation failed') || lowerMessage.includes('invalid')) {
+    return 'Please check your input and try again.';
+  }
+
+  // If no match, clean up the message
+  // Remove technical prefixes and make it more readable
+  let cleanMessage = technicalMessage
+    .replace(/^(error:|exception:|failed:)\s*/i, '')
+    .replace(/\[.*?\]/g, '') // Remove bracketed content like [object Object]
+    .replace(/\{.*?\}/g, '') // Remove JSON-like content
+    .trim();
+
+  // Capitalize first letter
+  if (cleanMessage.length > 0) {
+    cleanMessage = cleanMessage.charAt(0).toUpperCase() + cleanMessage.slice(1);
+  }
+
+  // Add period if missing
+  if (cleanMessage && !cleanMessage.endsWith('.') && !cleanMessage.endsWith('!') && !cleanMessage.endsWith('?')) {
+    cleanMessage += '.';
+  }
+
+  return cleanMessage || 'Something went wrong. Please try again.';
 }
 
 function handleError(error: AxiosError): ApiError {
@@ -168,7 +270,7 @@ function handleError(error: AxiosError): ApiError {
     // Handle timeout
     if (error.code === 'ECONNABORTED') {
       return {
-        message: 'Request timeout. The server is taking too long to respond.',
+        message: 'The request is taking too long. Please check your internet connection and try again.',
         code: 'TIMEOUT',
       };
     }
@@ -176,7 +278,7 @@ function handleError(error: AxiosError): ApiError {
     // Handle cancelled requests
     if (axios.isCancel(error)) {
       return {
-        message: 'Request cancelled',
+        message: 'Request was cancelled.',
         code: 'CANCELLED',
       };
     }
@@ -184,14 +286,14 @@ function handleError(error: AxiosError): ApiError {
     // Handle network errors
     if (error.message === 'Network Error') {
       return {
-        message: 'Network error. Please check your internet connection.',
+        message: 'Unable to connect. Please check your internet connection and try again.',
         code: 'NETWORK_ERROR',
       };
     }
 
     // Generic connection error
     return {
-      message: 'Unable to connect to the server. Please check your internet connection.',
+      message: 'Unable to connect to the server. Please check your internet connection and try again.',
       code: 'CONNECTION_ERROR',
     };
   }
@@ -200,12 +302,11 @@ function handleError(error: AxiosError): ApiError {
   const data = error.response.data as any;
 
   // Extract error message from response
-  const errorMessage =
-    data?.message || data?.error || error.message || 'An unexpected error occurred';
+  const rawMessage = data?.message || data?.error || error.message || '';
 
   // Create standardized error object
   const apiError: ApiError = {
-    message: errorMessage,
+    message: humanizeErrorMessage(rawMessage),
     status,
     code: data?.code || `HTTP_${status}`,
     details: data?.details || data,
@@ -214,41 +315,51 @@ function handleError(error: AxiosError): ApiError {
   // Handle specific status codes with user-friendly messages
   switch (status) {
     case 400:
-      apiError.message = data?.message || 'Invalid request. Please check your input.';
+      // Use the humanized version of the actual error message
+      apiError.message = humanizeErrorMessage(rawMessage) || 'Please check your input and try again.';
       break;
     case 401:
       apiError.message = 'Your session has expired. Please log in again.';
       break;
     case 403:
-      apiError.message = 'Access denied. You do not have permission to perform this action.';
+      // Check for email verification requirement
+      if (data?.requiresEmailVerification) {
+        apiError.message = 'Please verify your email address before logging in.';
+        apiError.requiresEmailVerification = true;
+        apiError.userId = data?.userId;
+      } else if (data?.error?.toLowerCase().includes('suspended')) {
+        apiError.message = 'Your account has been suspended. Please contact your administrator.';
+      } else {
+        apiError.message = humanizeErrorMessage(rawMessage) || 'You don\'t have permission to do this.';
+      }
       break;
     case 404:
-      apiError.message = 'The requested resource was not found.';
+      apiError.message = humanizeErrorMessage(rawMessage) || 'The requested item was not found.';
       break;
     case 409:
-      apiError.message = data?.message || 'This resource already exists.';
+      apiError.message = humanizeErrorMessage(rawMessage) || 'This item already exists.';
       break;
     case 422:
-      apiError.message = data?.message || 'Validation failed. Please check your input.';
+      apiError.message = humanizeErrorMessage(rawMessage) || 'Please check your input and try again.';
       break;
     case 429:
-      apiError.message = 'Too many requests. Please slow down and try again later.';
+      apiError.message = 'You\'re doing that too often. Please wait a moment and try again.';
       break;
     case 500:
-      apiError.message = 'Server error. Our team has been notified. Please try again later.';
+      apiError.message = 'Something went wrong on our end. Please try again in a moment.';
       break;
     case 502:
-      apiError.message = 'Bad gateway. The server is temporarily unavailable.';
-      break;
     case 503:
-      apiError.message = 'Service unavailable. We are performing maintenance. Please try again later.';
+      apiError.message = 'The service is temporarily unavailable. Please try again in a moment.';
       break;
     case 504:
-      apiError.message = 'Gateway timeout. The server is taking too long to respond.';
+      apiError.message = 'The request is taking too long. Please try again.';
       break;
     default:
       if (status >= 500) {
-        apiError.message = 'Server error. Please try again later.';
+        apiError.message = 'Something went wrong. Please try again later.';
+      } else {
+        apiError.message = humanizeErrorMessage(rawMessage) || 'Something went wrong. Please try again.';
       }
   }
 

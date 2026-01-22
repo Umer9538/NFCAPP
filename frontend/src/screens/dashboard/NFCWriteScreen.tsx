@@ -107,7 +107,7 @@ export default function NFCWriteScreen() {
       // Check NFC support
       const supported = await nfcService.isSupported();
       if (!supported) {
-        throw new Error('NFC is not supported on this device');
+        throw new Error('Your device does not support NFC.');
       }
 
       // Check NFC enabled
@@ -137,7 +137,7 @@ export default function NFCWriteScreen() {
       setStep('success');
     } catch (error: any) {
       console.error('Write error:', error);
-      setErrorMessage(error.message || 'Failed to write to NFC tag');
+      setErrorMessage(error.message || 'Unable to write to NFC tag. Please try again.');
       setStep('error');
     } finally {
       setIsWriting(false);
@@ -365,9 +365,9 @@ export default function NFCWriteScreen() {
           <Ionicons name="checkmark-circle" size={80} color={STATUS.success.main} />
         </View>
 
-        <Text style={styles.resultTitle}>Successfully Written!</Text>
+        <Text style={styles.resultTitle}>Tag Written Successfully!</Text>
         <Text style={styles.resultDescription}>
-          Your emergency profile has been written to the NFC tag
+          Your emergency profile is now saved to the NFC tag.
         </Text>
 
         <Card variant="elevated" padding="md" style={styles.successCard}>
@@ -417,7 +417,7 @@ export default function NFCWriteScreen() {
           <Ionicons name="close-circle" size={80} color={STATUS.error.main} />
         </View>
 
-        <Text style={styles.resultTitle}>Write Failed</Text>
+        <Text style={styles.resultTitle}>Unable to Write Tag</Text>
         <Text style={styles.resultDescription}>{errorMessage}</Text>
 
         <Card variant="outline" padding="md" style={styles.errorCard}>

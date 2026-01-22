@@ -20,3 +20,5 @@ export { default as WorkersScreen } from './WorkersScreen';
 export { default as StudentsScreen } from './StudentsScreen';
 export { default as TeachersScreen } from './TeachersScreen';
 export { default as ParentsScreen } from './ParentsScreen';
+export { default as EducationMoreScreen } from './EducationMoreScreen';
+export { default as ConstructionMoreScreen } from './ConstructionMoreScreen';

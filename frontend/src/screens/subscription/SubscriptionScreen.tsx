@@ -116,11 +116,11 @@ export default function SubscriptionScreen() {
       subscriptionApi.cancelSubscription(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
-      Alert.alert('Success', 'Your subscription has been cancelled. You can continue using premium features until the end of your billing period.');
+      Alert.alert('Subscription Cancelled', 'Your subscription has been cancelled. You can continue using premium features until the end of your current billing period.');
       setShowCancelModal(false);
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to cancel subscription. Please try again.');
+      Alert.alert('Unable to Cancel', 'We couldn\'t cancel your subscription. Please try again or contact support.');
     },
   });
 
@@ -129,10 +129,10 @@ export default function SubscriptionScreen() {
     mutationFn: subscriptionApi.resumeSubscription,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
-      Alert.alert('Success', 'Your subscription has been resumed!');
+      Alert.alert('Subscription Resumed', 'Your subscription has been resumed successfully!');
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to resume subscription. Please try again.');
+      Alert.alert('Unable to Resume', 'We couldn\'t resume your subscription. Please try again or contact support.');
     },
   });
 
@@ -145,11 +145,11 @@ export default function SubscriptionScreen() {
       if (supported) {
         await Linking.openURL(data.url);
       } else {
-        Alert.alert('Error', 'Cannot open checkout page');
+        Alert.alert('Unable to Open', 'We couldn\'t open the checkout page. Please try again.');
       }
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to create checkout session. Please try again.');
+      Alert.alert('Checkout Unavailable', 'We couldn\'t start the checkout process. Please try again.');
     },
   });
 
@@ -223,7 +223,7 @@ export default function SubscriptionScreen() {
         await Linking.openURL(session.url);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open payment method update page');
+      Alert.alert('Unable to Update', 'We couldn\'t open the payment method page. Please try again.');
     }
   };
 
@@ -235,7 +235,7 @@ export default function SubscriptionScreen() {
         await Linking.openURL(url);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to download invoice');
+      Alert.alert('Download Unavailable', 'We couldn\'t download this invoice. Please try again.');
     }
   };
 

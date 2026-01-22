@@ -13,9 +13,14 @@ import {
   RefreshControl,
   TextInput,
   SafeAreaView,
+  Modal,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   GraduationCap,
   Plus,
@@ -26,13 +31,19 @@ import {
   UserPlus,
   Users,
   BookOpen,
+  X,
+  Mail,
+  Phone,
+  Building,
+  ArrowLeft,
 } from 'lucide-react-native';
 
 import { LoadingSpinner } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
-import { SEMANTIC, STATUS, GRAY } from '@/constants/colors';
+import { SEMANTIC, STATUS, GRAY, PRIMARY } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 import type { AppScreenNavigationProp } from '@/navigation/types';
+import api from '@/api/client';
 
 // Education theme color (green)
 const EDUCATION_PRIMARY = '#16A34A';
@@ -53,92 +64,81 @@ interface Teacher {
   createdAt: string;
 }
 
+// API functions
+async function getTeachers(): Promise<{ teachers: Teacher[]; isAdmin: boolean }> {
+  const response = await api.get<any>('/api/organizations/teachers');
+  return {
+    teachers: response.teachers || [],
+    isAdmin: response.isAdmin || false,
+  };
+}
+
+async function addTeacher(data: {
+  fullName: string;
+  email: string;
+  phoneNumber?: string;
+  department?: string;
+  subjects?: string[];
+}): Promise<Teacher> {
+  const response = await api.post<any>('/api/organizations/teachers', data);
+  return response.teacher;
+}
+
 export default function TeachersScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
+  const queryClient = useQueryClient();
   const userRole = useAuthStore((state) => state.user?.role);
   const isAdmin = userRole === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  // Mock data for teachers
-  const mockTeachers: Teacher[] = [
-    {
-      id: 'teacher-1',
-      fullName: 'Jane Teacher',
-      email: 'jane.teacher@school.edu',
-      phoneNumber: '+1 (555) 111-2222',
-      department: 'Science',
-      subjects: ['Biology', 'Chemistry'],
-      assignedStudents: 25,
-      status: 'active',
-      profileComplete: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'teacher-2',
-      fullName: 'John Smith',
-      email: 'john.smith@school.edu',
-      phoneNumber: '+1 (555) 333-4444',
-      department: 'Mathematics',
-      subjects: ['Algebra', 'Geometry', 'Calculus'],
-      assignedStudents: 30,
-      status: 'active',
-      profileComplete: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'teacher-3',
-      fullName: 'Emily Davis',
-      email: 'emily.davis@school.edu',
-      phoneNumber: '+1 (555) 555-6666',
-      department: 'English',
-      subjects: ['Literature', 'Creative Writing'],
-      assignedStudents: 22,
-      status: 'active',
-      profileComplete: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'teacher-4',
-      fullName: 'Michael Johnson',
-      email: 'michael.johnson@school.edu',
-      department: 'Physical Education',
-      subjects: ['PE', 'Health'],
-      assignedStudents: 45,
-      status: 'active',
-      profileComplete: false,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'teacher-5',
-      fullName: 'Sarah Wilson',
-      email: 'sarah.wilson@school.edu',
-      department: 'History',
-      subjects: ['World History', 'US History'],
-      assignedStudents: 0,
-      status: 'pending',
-      profileComplete: false,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  // Form state for adding teacher
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    department: '',
+    subjects: '',
+  });
 
-  // Simulated query (would be replaced with real API call)
+  // Fetch teachers
   const {
     data: teachersData,
     isLoading,
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['teachers', searchQuery],
-    queryFn: async () => {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return { data: mockTeachers };
+    queryKey: ['teachers'],
+    queryFn: getTeachers,
+  });
+
+  const teachers = teachersData?.teachers || [];
+
+  // Add teacher mutation
+  const addTeacherMutation = useMutation({
+    mutationFn: addTeacher,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      setShowAddModal(false);
+      resetForm();
+      Alert.alert('Success', 'Teacher invitation sent successfully!');
+    },
+    onError: (error: any) => {
+      Alert.alert('Error', error.message || 'Failed to add teacher');
     },
   });
 
-  const teachers = teachersData?.data || mockTeachers;
+  const resetForm = () => {
+    setFormData({
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      department: '',
+      subjects: '',
+    });
+  };
 
   // Calculate stats
   const totalCount = teachers.length;
@@ -163,7 +163,32 @@ export default function TeachersScreen() {
   });
 
   const handleAddTeacher = () => {
-    navigation.navigate('AddEmployee', { type: 'employee' });
+    setShowAddModal(true);
+  };
+
+  const handleSubmitTeacher = () => {
+    if (!formData.fullName.trim()) {
+      Alert.alert('Error', 'Full name is required');
+      return;
+    }
+    if (!formData.email.trim()) {
+      Alert.alert('Error', 'Email is required');
+      return;
+    }
+
+    // Parse subjects from comma-separated string
+    const subjects = formData.subjects
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    addTeacherMutation.mutate({
+      fullName: formData.fullName.trim(),
+      email: formData.email.trim().toLowerCase(),
+      phoneNumber: formData.phoneNumber.trim() || undefined,
+      department: formData.department.trim() || undefined,
+      subjects: subjects.length > 0 ? subjects : undefined,
+    });
   };
 
   const handleTeacherPress = (teacher: Teacher) => {
@@ -384,15 +409,159 @@ export default function TeachersScreen() {
     );
   };
 
+  const renderAddModal = () => (
+    <Modal
+      visible={showAddModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowAddModal(false)}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContainer}
+      >
+        {/* Modal Header */}
+        <View style={styles.modalHeader}>
+          <Pressable onPress={() => setShowAddModal(false)} style={styles.modalCloseButton}>
+            <X size={24} color={SEMANTIC.text.primary} />
+          </Pressable>
+          <Text style={styles.modalTitle}>Add Teacher</Text>
+          <View style={styles.modalCloseButton} />
+        </View>
+
+        <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          {/* Full Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Full Name *</Text>
+            <View style={styles.inputContainer}>
+              <UserPlus size={20} color={GRAY[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter teacher's full name"
+                placeholderTextColor={GRAY[400]}
+                value={formData.fullName}
+                onChangeText={(text) => setFormData({ ...formData, fullName: text })}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email Address *</Text>
+            <View style={styles.inputContainer}>
+              <Mail size={20} color={GRAY[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="teacher@school.edu"
+                placeholderTextColor={GRAY[400]}
+                value={formData.email}
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          {/* Phone Number */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Phone Number</Text>
+            <View style={styles.inputContainer}>
+              <Phone size={20} color={GRAY[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="+1 (555) 123-4567"
+                placeholderTextColor={GRAY[400]}
+                value={formData.phoneNumber}
+                onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
+
+          {/* Department */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Department</Text>
+            <View style={styles.inputContainer}>
+              <Building size={20} color={GRAY[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Mathematics, Science"
+                placeholderTextColor={GRAY[400]}
+                value={formData.department}
+                onChangeText={(text) => setFormData({ ...formData, department: text })}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+
+          {/* Subjects */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Subjects (comma-separated)</Text>
+            <View style={styles.inputContainer}>
+              <BookOpen size={20} color={GRAY[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Algebra, Geometry, Calculus"
+                placeholderTextColor={GRAY[400]}
+                value={formData.subjects}
+                onChangeText={(text) => setFormData({ ...formData, subjects: text })}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+
+          {/* Info Text */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              An invitation email will be sent to the teacher with instructions to set up their account.
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* Submit Button */}
+        <View style={styles.modalFooter}>
+          <Pressable
+            style={[
+              styles.submitButton,
+              addTeacherMutation.isPending && styles.submitButtonDisabled,
+            ]}
+            onPress={handleSubmitTeacher}
+            disabled={addTeacherMutation.isPending}
+          >
+            {addTeacherMutation.isPending ? (
+              <Text style={styles.submitButtonText}>Sending Invitation...</Text>
+            ) : (
+              <>
+                <UserPlus size={20} color="#fff" />
+                <Text style={styles.submitButtonText}>Send Invitation</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
         <Text style={styles.headerTitle}>Teachers</Text>
-        {isAdmin && (
+        {isAdmin ? (
           <Pressable onPress={handleAddTeacher} style={styles.headerAddButton}>
             <Plus size={24} color={EDUCATION_PRIMARY} />
           </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
@@ -431,6 +600,9 @@ export default function TeachersScreen() {
           <UserPlus size={24} color="#fff" />
         </Pressable>
       )}
+
+      {/* Add Teacher Modal */}
+      {renderAddModal()}
     </SafeAreaView>
   );
 }
@@ -450,13 +622,26 @@ const styles = StyleSheet.create({
     borderBottomColor: SEMANTIC.border.light,
     backgroundColor: '#fff',
   },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: SEMANTIC.text.primary,
   },
   headerAddButton: {
-    padding: spacing[2],
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -693,5 +878,94 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.light,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
+  modalContent: {
+    flex: 1,
+    padding: spacing[4],
+  },
+  inputGroup: {
+    marginBottom: spacing[4],
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: SEMANTIC.text.secondary,
+    marginBottom: spacing[2],
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: GRAY[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: SEMANTIC.border.default,
+    paddingHorizontal: spacing[3],
+  },
+  inputIcon: {
+    marginRight: spacing[2],
+  },
+  input: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+    color: SEMANTIC.text.primary,
+  },
+  infoBox: {
+    backgroundColor: `${EDUCATION_PRIMARY}10`,
+    borderRadius: 12,
+    padding: spacing[4],
+    marginTop: spacing[4],
+  },
+  infoText: {
+    fontSize: 14,
+    color: EDUCATION_PRIMARY,
+    lineHeight: 20,
+  },
+  modalFooter: {
+    padding: spacing[4],
+    borderTopWidth: 1,
+    borderTopColor: SEMANTIC.border.light,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    backgroundColor: EDUCATION_PRIMARY,
+    paddingVertical: spacing[4],
+    borderRadius: 12,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

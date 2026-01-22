@@ -12,6 +12,9 @@ export * from './formatting';
 // Storage utilities
 export * from './storage';
 
+// Responsive utilities
+export * from './responsive';
+
 // Legacy utility functions (kept for backward compatibility)
 export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

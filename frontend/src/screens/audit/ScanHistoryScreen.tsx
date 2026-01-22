@@ -1,9 +1,9 @@
 /**
  * Scan History Screen
- * View bracelet/QR scan logs
+ * View bracelet/QR scan logs - Connected to real API
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -21,58 +21,19 @@ import { format } from 'date-fns';
 import { Card, Badge, LoadingSpinner } from '@/components/ui';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
-
-// Mock scan data
-interface ScanRecord {
-  id: string;
-  type: 'nfc' | 'qr';
-  timestamp: string;
-  location?: {
-    city?: string;
-    country?: string;
-  };
-  device?: string;
-  accessedBy?: string;
-}
-
-const getMockScans = (): ScanRecord[] => {
-  const now = new Date();
-  return [
-    {
-      id: '1',
-      type: 'nfc',
-      timestamp: new Date(now.getTime() - 1000 * 60 * 30).toISOString(),
-      location: { city: 'Toronto', country: 'Canada' },
-      device: 'iPhone 15 Pro',
-      accessedBy: 'Emergency Responder',
-    },
-    {
-      id: '2',
-      type: 'qr',
-      timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 2).toISOString(),
-      location: { city: 'Vancouver', country: 'Canada' },
-      device: 'Android Device',
-      accessedBy: 'Hospital Staff',
-    },
-    {
-      id: '3',
-      type: 'nfc',
-      timestamp: new Date(now.getTime() - 1000 * 60 * 60 * 24).toISOString(),
-      location: { city: 'Montreal', country: 'Canada' },
-      device: 'iPhone 14',
-      accessedBy: 'Self',
-    },
-  ];
-};
+import { scanHistoryApi, ScanRecord } from '@/api/scanHistory';
 
 export default function ScanHistoryScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  const { data: scans, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['scanHistory'],
-    queryFn: async () => getMockScans(),
+    queryFn: () => scanHistoryApi.getScanHistory(50),
   });
+
+  const scans = data?.scans || [];
+  const stats = data?.stats || { totalScans: 0, nfcScans: 0, qrScans: 0, thisMonth: 0 };
 
   if (isLoading) {
     return (
@@ -123,21 +84,17 @@ export default function ScanHistoryScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Ionicons name="scan" size={24} color={PRIMARY[600]} />
-            <Text style={styles.statValue}>{scans?.length || 0}</Text>
+            <Text style={styles.statValue}>{stats.totalScans}</Text>
             <Text style={styles.statLabel}>Total Scans</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="wifi" size={24} color={PRIMARY[600]} />
-            <Text style={styles.statValue}>
-              {scans?.filter(s => s.type === 'nfc').length || 0}
-            </Text>
+            <Text style={styles.statValue}>{stats.nfcScans}</Text>
             <Text style={styles.statLabel}>NFC Scans</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="qr-code" size={24} color={PRIMARY[600]} />
-            <Text style={styles.statValue}>
-              {scans?.filter(s => s.type === 'qr').length || 0}
-            </Text>
+            <Text style={styles.statValue}>{stats.qrScans}</Text>
             <Text style={styles.statLabel}>QR Scans</Text>
           </View>
         </View>
@@ -145,7 +102,7 @@ export default function ScanHistoryScreen() {
         {/* Scan List */}
         {scans && scans.length > 0 ? (
           <View style={styles.scanList}>
-            {scans.map((scan) => (
+            {scans.map((scan: ScanRecord) => (
               <Card key={scan.id} variant="outlined" padding="md" style={styles.scanCard}>
                 <View style={styles.scanHeader}>
                   <View style={[styles.scanIcon, { backgroundColor: scan.type === 'nfc' ? PRIMARY[50] : '#EEF2FF' }]}>
@@ -169,11 +126,11 @@ export default function ScanHistoryScreen() {
                 </View>
 
                 <View style={styles.scanDetails}>
-                  {scan.location && (
+                  {scan.location && (scan.location.city || scan.location.country) && (
                     <View style={styles.detailRow}>
                       <Ionicons name="location-outline" size={16} color={SEMANTIC.text.tertiary} />
                       <Text style={styles.detailText}>
-                        {scan.location.city}, {scan.location.country}
+                        {[scan.location.city, scan.location.country].filter(Boolean).join(', ') || 'Unknown location'}
                       </Text>
                     </View>
                   )}

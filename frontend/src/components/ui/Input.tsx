@@ -144,18 +144,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: SEMANTIC.surface.default,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: SEMANTIC.border.default,
     borderRadius: borderRadius.md,
-    minHeight: 44,
+    minHeight: 48,
   },
   inputContainerFocused: {
     borderColor: SEMANTIC.border.focus,
-    borderWidth: 2,
   },
   inputContainerError: {
     borderColor: SEMANTIC.border.error,
-    borderWidth: 1,
   },
   inputContainerDisabled: {
     backgroundColor: SEMANTIC.background.tertiary,

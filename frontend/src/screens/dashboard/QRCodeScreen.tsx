@@ -101,15 +101,15 @@ export function QRCodeScreen() {
       await MediaLibrary.createAlbumAsync('MedGuard', asset, false);
 
       Alert.alert(
-        'Success',
-        'QR code has been saved to your photo library!',
+        'Saved!',
+        'Your QR code has been saved to your photo library.',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('Download error:', error);
       Alert.alert(
-        'Download Failed',
-        'Failed to save QR code. Please try again.'
+        'Unable to Save',
+        'We could not save the QR code. Please try again.'
       );
     } finally {
       setIsDownloading(false);
@@ -131,7 +131,7 @@ export function QRCodeScreen() {
       }
     } catch (error) {
       console.error('Share error:', error);
-      Alert.alert('Share Failed', 'Failed to share QR code.');
+      Alert.alert('Unable to Share', 'We could not share the QR code. Please try again.');
     }
   };
 
@@ -277,7 +277,7 @@ export function QRCodeScreen() {
       });
     } catch (error) {
       console.error('Print error:', error);
-      Alert.alert('Print Failed', 'Failed to print QR code.');
+      Alert.alert('Unable to Print', 'We could not print the QR code. Please try again.');
     }
   };
 
@@ -329,9 +329,9 @@ export function QRCodeScreen() {
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={PRIMARY[600]} />
-          <Text style={styles.errorTitle}>Failed to Load QR Code</Text>
+          <Text style={styles.errorTitle}>Unable to Load QR Code</Text>
           <Text style={styles.errorText}>
-            Unable to generate QR code. Please check your bracelet connection.
+            We could not generate your QR code. Please check your connection and try again.
           </Text>
           <Button onPress={() => navigation.goBack()} style={styles.errorButton}>
             Go Back

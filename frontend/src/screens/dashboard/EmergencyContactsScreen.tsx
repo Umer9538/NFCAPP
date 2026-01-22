@@ -12,7 +12,9 @@ import {
   Pressable,
   Linking,
   Alert,
+  SafeAreaView,
 } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -41,11 +43,11 @@ export default function EmergencyContactsScreen() {
   const deleteContactMutation = useMutation({
     mutationFn: contactsApi.deleteEmergencyContact,
     onSuccess: () => {
-      success('Contact deleted successfully');
+      success('Contact has been removed from your emergency list.');
       queryClient.invalidateQueries({ queryKey: ['emergencyContacts'] });
     },
     onError: () => {
-      showError('Failed to delete contact');
+      showError('Unable to delete contact. Please try again.');
     },
   });
 
@@ -56,18 +58,18 @@ export default function EmergencyContactsScreen() {
         if (supported) {
           return Linking.openURL(phoneUrl);
         } else {
-          showError('Phone calls are not supported on this device');
+          showError('Your device does not support phone calls.');
         }
       })
       .catch(() => {
-        showError('Failed to make call');
+        showError('Unable to make call. Please try again.');
       });
   };
 
   const handleEmail = (email: string) => {
     const emailUrl = `mailto:${email}`;
     Linking.openURL(emailUrl).catch(() => {
-      showError('Failed to open email');
+      showError('Unable to open email app. Please try again.');
     });
   };
 
@@ -102,57 +104,72 @@ export default function EmergencyContactsScreen() {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle" size={64} color={STATUS.error} />
-        <Text style={styles.errorText}>Failed to load contacts</Text>
+        <Text style={styles.errorText}>Unable to load contacts. Please check your connection and try again.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {!contacts || contacts.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={80} color={SEMANTIC.text.tertiary} />
-            <Text style={styles.emptyStateTitle}>No Emergency Contacts</Text>
-            <Text style={styles.emptyStateText}>
-              Add emergency contacts who can be reached in case of an emergency.
-            </Text>
-            <Pressable style={styles.emptyStateButton} onPress={handleAddContact}>
-              <Ionicons name="add" size={20} color="#ffffff" />
-              <Text style={styles.emptyStateButtonText}>Add Contact</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.contactsList}>
-            {contacts.map((contact) => (
-              <ContactCard
-                key={contact.id}
-                contact={contact}
-                onCall={handleCall}
-                onEmail={handleEmail}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))}
-          </View>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Navigation Header */}
+      <View style={styles.navHeader}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
+        </Pressable>
+        <Text style={styles.navTitle}>Emergency Contacts</Text>
+        <View style={styles.navSpacer} />
+      </View>
+
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+        >
+          {!contacts || contacts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={80} color={SEMANTIC.text.tertiary} />
+              <Text style={styles.emptyStateTitle}>No Emergency Contacts</Text>
+              <Text style={styles.emptyStateText}>
+                Add emergency contacts who can be reached in case of an emergency.
+              </Text>
+              <Pressable style={styles.emptyStateButton} onPress={handleAddContact}>
+                <Ionicons name="add" size={20} color="#ffffff" />
+                <Text style={styles.emptyStateButtonText}>Add Contact</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.contactsList}>
+              {contacts.map((contact) => (
+                <ContactCard
+                  key={contact.id}
+                  contact={contact}
+                  onCall={handleCall}
+                  onEmail={handleEmail}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Floating Action Button */}
+        {contacts && contacts.length > 0 && (
+          <FAB
+            icon="add"
+            onPress={handleAddContact}
+            position="bottom-right"
+            label="Add Contact"
+          />
         )}
-      </ScrollView>
 
-      {/* Floating Action Button */}
-      {contacts && contacts.length > 0 && (
-        <FAB
-          icon="add"
-          onPress={handleAddContact}
-          position="bottom-right"
-          label="Add Contact"
-        />
-      )}
-
-      <Toast {...toastConfig} onDismiss={hideToast} />
-    </View>
+        <Toast {...toastConfig} onDismiss={hideToast} />
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -276,6 +293,35 @@ function getMockContacts(): EmergencyContact[] {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  navHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: SEMANTIC.border.light,
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: SEMANTIC.text.primary,
+  },
+  navSpacer: {
+    width: 40,
+  },
   container: {
     flex: 1,
     backgroundColor: SEMANTIC.background.default,

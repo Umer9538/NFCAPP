@@ -92,12 +92,23 @@ export default function EditIncidentReportScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incidentReport', reportId] });
       queryClient.invalidateQueries({ queryKey: ['incidentReports'] });
-      Alert.alert('Success', 'Incident report updated successfully', [
+      Alert.alert('Report Updated', 'Your changes have been saved successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     },
     onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to update incident report');
+      const errorMessage = error?.message?.toLowerCase() || '';
+      let userMessage = 'We couldn\'t save your changes. Please try again.';
+
+      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        userMessage = 'Unable to connect. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        userMessage = 'You don\'t have permission to edit this report.';
+      } else if (errorMessage.includes('not found')) {
+        userMessage = 'This report no longer exists. It may have been deleted.';
+      }
+
+      Alert.alert('Unable to Save Changes', userMessage);
     },
   });
 
@@ -108,11 +119,11 @@ export default function EditIncidentReportScreen() {
   const handleSubmit = () => {
     // Validation
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title');
+      Alert.alert('Missing Information', 'Please enter a title for this report.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Validation Error', 'Please enter a description');
+      Alert.alert('Missing Information', 'Please provide a description of the incident.');
       return;
     }
 

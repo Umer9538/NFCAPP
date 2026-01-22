@@ -78,7 +78,7 @@ export default function SetupOrganizationScreen() {
         domain: data.domain || undefined,
       }),
     onSuccess: (org) => {
-      success('Organization created successfully!');
+      success('Your organization has been created successfully!');
 
       // Update user with organization ID
       if (user) {
@@ -97,7 +97,20 @@ export default function SetupOrganizationScreen() {
       }, 1000);
     },
     onError: (error: any) => {
-      showError(error.message || 'Failed to create organization');
+      const message = error.message?.toLowerCase() || '';
+      let friendlyMessage = 'Unable to create organization. Please try again.';
+
+      if (message.includes('not authorized') || message.includes('unauthorized') || message.includes('permission')) {
+        friendlyMessage = "You don't have permission to create an organization.";
+      } else if (message.includes('network') || message.includes('connection')) {
+        friendlyMessage = 'No internet connection. Please check your network and try again.';
+      } else if (message.includes('already exists') || message.includes('duplicate')) {
+        friendlyMessage = 'An organization with this name already exists.';
+      } else if (message.includes('domain')) {
+        friendlyMessage = 'This email domain is already in use by another organization.';
+      }
+
+      showError(friendlyMessage);
     },
   });
 
