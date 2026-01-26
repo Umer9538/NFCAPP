@@ -13,18 +13,17 @@ import {
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
-} from 'react-native';
+ PixelRatio } from 'react-native';
 import { GLView, ExpoWebGLRenderingContext } from 'expo-gl';
 import * as THREE from 'three';
 import { PRIMARY, GRAY } from '@/constants/colors';
+
 
 interface Bracelet3DViewProps {
   nfcId?: string;
   status?: 'active' | 'inactive' | 'lost';
   autoRotate?: boolean;
 }
-
-import { PixelRatio } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 

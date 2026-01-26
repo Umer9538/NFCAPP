@@ -266,7 +266,7 @@ export default function TwoFactorAuthScreen() {
 
               {/* Resend Code */}
               <View style={styles.resendContainer}>
-                <Text style={styles.resendText}>Didn't receive code?</Text>
+                <Text style={styles.resendText}>{"Didn't receive code?"}</Text>
                 {canResend ? (
                   <Pressable onPress={handleResend} disabled={isLoading}>
                     <Text style={[styles.resendLink, isLoading && styles.resendLinkDisabled]}>

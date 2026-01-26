@@ -487,7 +487,7 @@ export default function ForgotPasswordScreen() {
 
                 {/* Resend */}
                 <View style={styles.resendContainer}>
-                  <Text style={styles.resendLabel}>Didn't receive the code?</Text>
+                  <Text style={styles.resendLabel}>{"Didn't receive the code?"}</Text>
                   <Pressable
                     onPress={handleResendCode}
                     disabled={resendCooldown > 0 || forgotPasswordMutation.isPending}

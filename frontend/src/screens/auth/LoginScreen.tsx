@@ -438,7 +438,7 @@ export default function LoginScreen() {
 
         {/* Sign Up Link */}
         <Animated.View style={[styles.signupContainer, { opacity: footerOpacity }]}>
-          <Text style={styles.signupText}>Don't have an account? </Text>
+          <Text style={styles.signupText}>{"Don't have an account? "}</Text>
           <Pressable onPress={() => navigation.navigate('AccountType')}>
             <Text style={styles.signupLink}>Sign Up</Text>
           </Pressable>

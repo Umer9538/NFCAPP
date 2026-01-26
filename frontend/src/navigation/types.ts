@@ -3,7 +3,18 @@
  * TypeScript definitions for all navigators
  */
 
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { NavigatorScreenParams , CompositeNavigationProp, RouteProp } from '@react-navigation/native';
+
+/**
+ * Auth Stack Param List
+ */
+import type { AccountType } from '@/config/dashboardConfig';
+
+/**
+ * Navigation prop types for screens
+ */
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 /**
  * Onboarding Stack Param List
@@ -14,11 +25,6 @@ export type OnboardingStackParamList = {
   OnboardingProfile: undefined;
   OnboardingComplete: undefined;
 };
-
-/**
- * Auth Stack Param List
- */
-import type { AccountType } from '@/config/dashboardConfig';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -175,13 +181,6 @@ export type RootStackParamList = {
   EmergencyViewModal: { profileId: string };
   ScanSuccessModal: { profileId: string; scanType: 'nfc' | 'qr' };
 };
-
-/**
- * Navigation prop types for screens
- */
-import type { StackNavigationProp } from '@react-navigation/stack';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
 
 // Onboarding Navigator Props
 export type OnboardingNavigationProp = StackNavigationProp<OnboardingStackParamList>;

@@ -15,11 +15,11 @@ interface PlaceholderScreenProps {
   title: string;
   description?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  actions?: Array<{
+  actions?: {
     label: string;
     onPress: () => void;
     variant?: 'primary' | 'secondary' | 'outline';
-  }>;
+  }[];
 }
 
 export default function PlaceholderScreen({

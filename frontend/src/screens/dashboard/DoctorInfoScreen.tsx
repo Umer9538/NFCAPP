@@ -251,7 +251,7 @@ export default function DoctorInfoScreen() {
             </View>
             <Text style={styles.emptyStateTitle}>No Doctor Information</Text>
             <Text style={styles.emptyStateText}>
-              Add your primary doctor's information for quick access during emergencies.
+              {"Add your primary doctor's information for quick access during emergencies."}
             </Text>
             <Button
               title="Add Doctor Information"

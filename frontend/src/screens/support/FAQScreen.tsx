@@ -440,7 +440,7 @@ export default function FAQScreen() {
         <View style={styles.supportCard}>
           <Text style={styles.supportTitle}>Still have questions?</Text>
           <Text style={styles.supportText}>
-            Contact our support team and we'll be happy to help.
+            {"Contact our support team and we'll be happy to help."}
           </Text>
           <Pressable
             style={styles.supportButton}

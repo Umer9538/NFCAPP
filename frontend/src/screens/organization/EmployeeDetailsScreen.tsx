@@ -485,7 +485,7 @@ export default function EmployeeDetailsScreen() {
                 <View style={styles.suspendedBanner}>
                   <AlertTriangle size={20} color={STATUS.warning.main} />
                   <Text style={styles.suspendedBannerText}>
-                    This employee's access is currently suspended
+                    {"This employee's access is currently suspended"}
                   </Text>
                 </View>
               )}
@@ -654,7 +654,7 @@ export default function EmployeeDetailsScreen() {
                   <View style={styles.incompleteNotice}>
                     <AlertCircle size={16} color={STATUS.warning.main} />
                     <Text style={styles.incompleteNoticeText}>
-                      This {dashboardConfig.terminology.user.toLowerCase()} hasn't completed their medical profile yet.
+                      {`This ${dashboardConfig.terminology.user.toLowerCase()} hasn't completed their medical profile yet.`}
                     </Text>
                   </View>
                 )}

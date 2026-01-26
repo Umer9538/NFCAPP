@@ -99,7 +99,9 @@ export const MemoizedItem = memo(
 /**
  * Separator component for lists
  */
-const ListSeparatorComponent = memo(() => <View style={styles.separator} />);
+const ListSeparatorComponent = memo(function ListSeparator() {
+  return <View style={styles.separator} />;
+});
 
 /**
  * Empty component for lists
@@ -108,22 +110,26 @@ interface EmptyComponentProps {
   message?: string;
 }
 
-const ListEmptyComponent = memo(({ message = 'No items found' }: EmptyComponentProps) => (
-  <View style={styles.emptyContainer}>
-    <View style={styles.emptyContent}>
-      {/* Add EmptyState component here if needed */}
+const ListEmptyComponent = memo(function ListEmpty({ message = 'No items found' }: EmptyComponentProps) {
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
+        {/* Add EmptyState component here if needed */}
+      </View>
     </View>
-  </View>
-));
+  );
+});
 
 /**
  * Footer loading component
  */
-const FooterLoadingComponent = memo(() => (
-  <View style={styles.footerLoader}>
-    {/* Add LoadingSpinner here if needed */}
-  </View>
-));
+const FooterLoadingComponent = memo(function FooterLoading() {
+  return (
+    <View style={styles.footerLoader}>
+      {/* Add LoadingSpinner here if needed */}
+    </View>
+  );
+});
 
 /**
  * Optimized list with all performance features

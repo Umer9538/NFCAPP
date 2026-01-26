@@ -155,7 +155,7 @@ export default function MedicationsScreen() {
         </View>
         <Text style={styles.emptyTitle}>No Medications Listed</Text>
         <Text style={styles.emptySubtitle}>
-          Add your medications so healthcare providers know what you're taking
+          {"Add your medications so healthcare providers know what you're taking"}
         </Text>
         <Pressable style={styles.emptyButton} onPress={handleAddMedication}>
           <Plus size={20} color="#fff" />

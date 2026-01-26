@@ -193,7 +193,7 @@ export default function NFCWriteScreen() {
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Prepare your NFC tag</Text>
             <Text style={styles.stepDescription}>
-              Have an empty NFC tag ready. Make sure it's not locked or read-only.
+              {"Have an empty NFC tag ready. Make sure it's not locked or read-only."}
             </Text>
           </View>
         </View>
@@ -203,7 +203,7 @@ export default function NFCWriteScreen() {
             <Text style={styles.stepNumberText}>2</Text>
           </View>
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Tap "Start Writing" below</Text>
+            <Text style={styles.stepTitle}>{"Tap \"Start Writing\" below"}</Text>
             <Text style={styles.stepDescription}>
               This will prepare your phone to write to the NFC tag.
             </Text>
@@ -352,7 +352,7 @@ export default function NFCWriteScreen() {
         <View style={styles.writingTips}>
           <Text style={styles.writingTip}>📱 Keep devices close together</Text>
           <Text style={styles.writingTip}>⏱️ This may take a few seconds</Text>
-          <Text style={styles.writingTip}>🚫 Don't move until complete</Text>
+          <Text style={styles.writingTip}>{"🚫 Don't move until complete"}</Text>
         </View>
       </Animated.View>
     </View>

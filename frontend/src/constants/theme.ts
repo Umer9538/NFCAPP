@@ -4,6 +4,9 @@
  */
 
 import * as ColorExports from './colors';
+
+// Create SPACING and TYPOGRAPHY aliases for convenience
+import { spacing, typography } from '../theme/theme';
 export { PRIMARY, GRAY, SEMANTIC, STATUS, MEDICAL_COLORS } from './colors';
 export { spacing, typography, borderRadius, shadows } from '../theme/theme';
 
@@ -17,9 +20,6 @@ export const COLORS = {
   error: ColorExports.STATUS.error,
   info: ColorExports.STATUS.info,
 };
-
-// Create SPACING and TYPOGRAPHY aliases for convenience
-import { spacing, typography } from '../theme/theme';
 
 export const SPACING = {
   xs: spacing[2],   // 8

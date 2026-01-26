@@ -42,21 +42,21 @@ interface ProfileApiResponse {
       bloodType: string;
       height: string;
       weight: string;
-      allergies: Array<{ allergen: string; severity: string; reaction: string }>;
+      allergies: { allergen: string; severity: string; reaction: string }[];
       medicalConditions: string[];
-      medications: Array<{ name: string; dosage: string; frequency: string }>;
+      medications: { name: string; dosage: string; frequency: string }[];
       emergencyNotes?: string;
       isOrganDonor: boolean;
       hasDNR: boolean;
     } | null;
     doctorInfo: any;
-    emergencyContacts: Array<{
+    emergencyContacts: {
       id: string;
       name: string;
       relation: string;
       phone: string;
       email?: string;
-    }>;
+    }[];
     prescriptions: any[];
   };
 }

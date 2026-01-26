@@ -115,8 +115,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             {/* Message */}
             <Text style={styles.message}>
-              We're sorry for the inconvenience. The app encountered an unexpected
-              error and needs to restart.
+              {"We're sorry for the inconvenience. The app encountered an unexpected error and needs to restart."}
             </Text>
 
             {/* Error Details (only in dev mode) */}

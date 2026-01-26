@@ -56,7 +56,7 @@ export default function CompleteScreen() {
               <Ionicons name="checkmark" size={80} color="#fff" />
             </View>
           </View>
-          <Text style={styles.title}>You're All Set!</Text>
+          <Text style={styles.title}>{"You're All Set!"}</Text>
           <Text style={styles.subtitle}>
             Your profile has been created successfully
           </Text>
@@ -64,7 +64,7 @@ export default function CompleteScreen() {
 
         {/* Next Steps */}
         <View style={styles.content}>
-          <Text style={styles.sectionTitle}>What's Next?</Text>
+          <Text style={styles.sectionTitle}>{"What's Next?"}</Text>
 
           <Card variant="elevated" padding="lg" style={styles.stepCard}>
             <View style={styles.stepHeader}>

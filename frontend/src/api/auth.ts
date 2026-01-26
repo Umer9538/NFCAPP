@@ -367,13 +367,13 @@ export async function checkEmailAvailability(email: string): Promise<{ available
 /**
  * Get user sessions
  */
-export async function getUserSessions(): Promise<Array<{
+export async function getUserSessions(): Promise<{
   id: string;
   device: string;
   location: string;
   lastActive: string;
   current: boolean;
-}>> {
+}[]> {
   return await api.get('/api/auth/sessions');
 }
 
@@ -433,17 +433,17 @@ export interface ProfileSetupRequest {
     weight?: string;
     isOrganDonor?: boolean;
     hasDNR?: boolean;
-    allergies?: Array<{ allergen: string; severity: string; reaction: string }>;
+    allergies?: { allergen: string; severity: string; reaction: string }[];
     medicalConditions?: string[];
-    medications?: Array<{ name: string; dosage: string; frequency: string }>;
+    medications?: { name: string; dosage: string; frequency: string }[];
     emergencyNotes?: string;
   };
-  emergencyContacts?: Array<{
+  emergencyContacts?: {
     name: string;
     relation: string;
     phone: string;
     email?: string;
-  }>;
+  }[];
 }
 
 /**

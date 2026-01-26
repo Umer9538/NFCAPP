@@ -117,57 +117,89 @@ export const verifyEmailSchema = z.object({
 export type VerifyEmailFormData = z.infer<typeof verifyEmailSchema>;
 
 /**
- * Password Strength Calculator
+ * Password Requirement Interface
  */
-export function calculatePasswordStrength(password: string): {
-  strength: 'weak' | 'fair' | 'good' | 'strong';
+export interface PasswordRequirement {
+  id: string;
+  label: string;
+  met: boolean;
+}
+
+/**
+ * Password Strength Result Interface
+ */
+export interface PasswordStrengthResult {
+  strength: 'weak' | 'medium' | 'strong';
   score: number;
+  percentage: number;
+  requirements: PasswordRequirement[];
   feedback: string[];
-} {
-  let score = 0;
-  const feedback: string[] = [];
+}
 
-  // Length check
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
-  if (password.length >= 16) score += 1;
+/**
+ * Password Strength Calculator
+ * Returns real-time feedback with checklist of requirements
+ */
+export function calculatePasswordStrength(password: string): PasswordStrengthResult {
+  // Define requirements
+  const requirements: PasswordRequirement[] = [
+    {
+      id: 'length',
+      label: '8+ characters',
+      met: password.length >= 8,
+    },
+    {
+      id: 'uppercase',
+      label: '1 uppercase letter',
+      met: /[A-Z]/.test(password),
+    },
+    {
+      id: 'lowercase',
+      label: '1 lowercase letter',
+      met: /[a-z]/.test(password),
+    },
+    {
+      id: 'number',
+      label: '1 number',
+      met: /\d/.test(password),
+    },
+    {
+      id: 'special',
+      label: '1 special character (!@#$%^&*)',
+      met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    },
+  ];
 
-  // Character variety
-  if (/[a-z]/.test(password)) {
-    score += 1;
-  } else {
-    feedback.push('Add lowercase letters');
-  }
+  // Calculate score based on met requirements
+  const metCount = requirements.filter(r => r.met).length;
+  const score = metCount;
+  const percentage = (metCount / requirements.length) * 100;
 
-  if (/[A-Z]/.test(password)) {
-    score += 1;
-  } else {
-    feedback.push('Add uppercase letters');
-  }
+  // Bonus for extra length
+  let bonusScore = 0;
+  if (password.length >= 12) bonusScore += 1;
+  if (password.length >= 16) bonusScore += 1;
 
-  if (/\d/.test(password)) {
-    score += 1;
-  } else {
-    feedback.push('Add numbers');
-  }
-
-  if (/[@$!%*?&#]/.test(password)) {
-    score += 1;
-  } else {
-    feedback.push('Add special characters');
-  }
-
-  // Determine strength
-  let strength: 'weak' | 'fair' | 'good' | 'strong';
-  if (score <= 2) {
+  // Determine strength based on requirements met
+  let strength: 'weak' | 'medium' | 'strong';
+  if (metCount <= 2) {
     strength = 'weak';
-  } else if (score <= 4) {
-    strength = 'fair';
-  } else if (score <= 6) {
-    strength = 'good';
+  } else if (metCount <= 4) {
+    strength = 'medium';
   } else {
     strength = 'strong';
   }
 
-  return { strength, score, feedback };
+  // Generate feedback for unmet requirements
+  const feedback = requirements
+    .filter(r => !r.met)
+    .map(r => `Add ${r.label.toLowerCase()}`);
+
+  return {
+    strength,
+    score: score + bonusScore,
+    percentage,
+    requirements,
+    feedback
+  };
 }

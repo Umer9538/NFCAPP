@@ -170,7 +170,7 @@ export default function HelpScreen() {
         <View style={styles.emergencyNote}>
           <Text style={styles.emergencyTitle}>Medical Emergency?</Text>
           <Text style={styles.emergencyText}>
-            If you're experiencing a medical emergency, please call 911 or your local emergency services immediately.
+            {"If you're experiencing a medical emergency, please call 911 or your local emergency services immediately."}
           </Text>
           <Pressable
             style={styles.emergencyButton}

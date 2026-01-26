@@ -31,7 +31,7 @@ import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
-import { signupSchema, type SignupFormData, calculatePasswordStrength } from '@/utils/validationSchemas';
+import { signupSchema, type SignupFormData, calculatePasswordStrength, type PasswordStrengthResult } from '@/utils/validationSchemas';
 import { containers, text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC, STATUS } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
@@ -48,11 +48,7 @@ export default function SignupScreen() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState<{
-    strength: 'weak' | 'fair' | 'good' | 'strong';
-    score: number;
-    feedback: string[];
-  } | null>(null);
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrengthResult | null>(null);
 
   // Animation values
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -183,20 +179,27 @@ export default function SignupScreen() {
   const getStrengthColor = (strength: string) => {
     switch (strength) {
       case 'weak':
-        return STATUS.error;
-      case 'fair':
-        return STATUS.warning;
-      case 'good':
-        return '#3b82f6'; // blue
+        return STATUS.error; // Red
+      case 'medium':
+        return STATUS.warning; // Yellow/Orange
       case 'strong':
-        return STATUS.success;
+        return STATUS.success; // Green
       default:
         return SEMANTIC.border.default;
     }
   };
 
-  const getStrengthWidth = (score: number) => {
-    return `${(score / 7) * 100}%`;
+  const getStrengthLabel = (strength: string) => {
+    switch (strength) {
+      case 'weak':
+        return 'Weak';
+      case 'medium':
+        return 'Medium';
+      case 'strong':
+        return 'Strong';
+      default:
+        return '';
+    }
   };
 
   // Get account type icon
@@ -401,35 +404,58 @@ export default function SignupScreen() {
             {/* Password Strength Indicator */}
             {passwordStrength && (
               <View style={styles.strengthContainer}>
-                <View style={styles.strengthBar}>
-                  <View
-                    style={[
-                      styles.strengthFill,
-                      {
-                        width: getStrengthWidth(passwordStrength.score),
-                        backgroundColor: getStrengthColor(passwordStrength.strength),
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.strengthInfo}>
+                {/* Strength Bar */}
+                <View style={styles.strengthBarContainer}>
+                  <View style={styles.strengthBar}>
+                    <View
+                      style={[
+                        styles.strengthFill,
+                        {
+                          width: `${passwordStrength.percentage}%`,
+                          backgroundColor: getStrengthColor(passwordStrength.strength),
+                        },
+                      ]}
+                    />
+                  </View>
                   <Text
                     style={[
-                      styles.strengthText,
+                      styles.strengthLabel,
                       { color: getStrengthColor(passwordStrength.strength) },
                     ]}
                   >
-                    Password strength: {passwordStrength.strength.charAt(0).toUpperCase() + passwordStrength.strength.slice(1)}
+                    {getStrengthLabel(passwordStrength.strength)}
                   </Text>
-                  {passwordStrength.feedback.length > 0 && (
-                    <View style={styles.feedbackContainer}>
-                      {passwordStrength.feedback.map((item, index) => (
-                        <Text key={index} style={styles.feedbackText}>
-                          • {item}
+                </View>
+
+                {/* Requirements Checklist */}
+                <View style={styles.requirementsContainer}>
+                  <Text style={styles.requirementsTitle}>Password must have:</Text>
+                  <View style={styles.requirementsList}>
+                    {passwordStrength.requirements.map((req) => (
+                      <View key={req.id} style={styles.requirementItem}>
+                        <View
+                          style={[
+                            styles.requirementIcon,
+                            req.met ? styles.requirementMet : styles.requirementUnmet,
+                          ]}
+                        >
+                          <Ionicons
+                            name={req.met ? 'checkmark' : 'close'}
+                            size={12}
+                            color={req.met ? '#ffffff' : SEMANTIC.text.tertiary}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.requirementText,
+                            req.met && styles.requirementTextMet,
+                          ]}
+                        >
+                          {req.label}
                         </Text>
-                      ))}
-                    </View>
-                  )}
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
             )}
@@ -635,32 +661,73 @@ const styles = StyleSheet.create({
   },
   strengthContainer: {
     marginTop: -spacing[2],
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: spacing[3],
+  },
+  strengthBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    marginBottom: spacing[3],
   },
   strengthBar: {
-    height: 4,
+    flex: 1,
+    height: 6,
     backgroundColor: SEMANTIC.border.default,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: spacing[2],
   },
   strengthFill: {
     height: '100%',
-    borderRadius: 2,
-    transition: 'width 0.3s ease',
+    borderRadius: 3,
   },
-  strengthInfo: {
-    gap: spacing[1],
+  strengthLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    minWidth: 60,
+    textAlign: 'right',
   },
-  strengthText: {
+  requirementsContainer: {
+    gap: spacing[2],
+  },
+  requirementsTitle: {
     fontSize: 12,
     fontWeight: '600',
+    color: SEMANTIC.text.secondary,
+    marginBottom: spacing[1],
   },
-  feedbackContainer: {
+  requirementsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing[1],
+    minWidth: '45%',
   },
-  feedbackText: {
-    fontSize: 11,
+  requirementIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requirementMet: {
+    backgroundColor: STATUS.success,
+  },
+  requirementUnmet: {
+    backgroundColor: SEMANTIC.border.default,
+  },
+  requirementText: {
+    fontSize: 12,
     color: SEMANTIC.text.tertiary,
+  },
+  requirementTextMet: {
+    color: SEMANTIC.text.primary,
+    fontWeight: '500',
   },
   termsContainer: {
     flexDirection: 'row',

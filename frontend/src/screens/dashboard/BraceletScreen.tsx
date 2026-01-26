@@ -241,10 +241,7 @@ export default function BraceletScreen() {
           <Card variant="elevated" padding="md" style={styles.instructionsCard}>
             <Text style={styles.instructionsTitle}>How to link:</Text>
             <Text style={styles.instructionsText}>
-              1. Tap "Scan NFC Bracelet" above{'\n'}
-              2. Hold your phone near the bracelet{'\n'}
-              3. Wait for confirmation{'\n'}
-              4. Your bracelet is now linked!
+              {"1. Tap \"Scan NFC Bracelet\" above\n2. Hold your phone near the bracelet\n3. Wait for confirmation\n4. Your bracelet is now linked!"}
             </Text>
           </Card>
         </View>
@@ -276,7 +273,7 @@ export default function BraceletScreen() {
               </View>
 
               <Text style={styles.modalDescription}>
-                Enter the NFC ID printed on your bracelet or packaging. It usually looks like "NFC-XXXX-XXXX".
+                {"Enter the NFC ID printed on your bracelet or packaging. It usually looks like \"NFC-XXXX-XXXX\"."}
               </Text>
 
               <TextInput

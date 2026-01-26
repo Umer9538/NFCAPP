@@ -82,18 +82,18 @@ export interface UpdateProfileRequest {
     weight: string;  // e.g., "75kg"
     isOrganDonor: boolean;
     hasDNR: boolean;
-    allergies: Array<{ allergen: string; severity: string; reaction: string }>;
+    allergies: { allergen: string; severity: string; reaction: string }[];
     medicalConditions: string[];
-    medications: Array<{ name: string; dosage: string; frequency: string }>;
+    medications: { name: string; dosage: string; frequency: string }[];
     emergencyNotes?: string;
   };
-  emergencyContacts: Array<{
+  emergencyContacts: {
     id?: string;
     name: string;
     relation: string;
     phone: string;
     email?: string;
-  }>;
+  }[];
 }
 
 export interface AddAllergyRequest {

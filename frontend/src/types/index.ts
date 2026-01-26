@@ -4,6 +4,14 @@
  */
 
 // Re-export common types from database module
+// ============================================
+// FRONTEND-SPECIFIC TYPE ADAPTATIONS
+// These maintain backward compatibility with existing frontend code
+// ============================================
+
+import type { AccountType } from '@database/types/common.types';
+import type { User as DatabaseUser } from '@database/types/user.types';
+
 export type {
   AccountType,
   UserRole,
@@ -79,14 +87,6 @@ export * from '@database/types/organization.types';
 
 // Re-export incident types
 export * from '@database/types/incident.types';
-
-// ============================================
-// FRONTEND-SPECIFIC TYPE ADAPTATIONS
-// These maintain backward compatibility with existing frontend code
-// ============================================
-
-import type { AccountType } from '@database/types/common.types';
-import type { User as DatabaseUser } from '@database/types/user.types';
 
 /**
  * Frontend User type (adapted for existing screens)

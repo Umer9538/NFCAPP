@@ -104,7 +104,7 @@ export default function EmergencyProfileScreen() {
           <Ionicons name="alert-circle" size={80} color={EMERGENCY_COLORS.alert} />
           <Text style={styles.errorTitle}>Bracelet Not Found</Text>
           <Text style={styles.errorText}>
-            The bracelet ID "{braceletId}" could not be found or is inactive.
+            {`The bracelet ID "${braceletId}" could not be found or is inactive.`}
           </Text>
           <Text style={styles.errorSubtext}>
             Please verify the bracelet ID and try again.

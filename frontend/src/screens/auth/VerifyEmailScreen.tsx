@@ -195,7 +195,7 @@ export default function VerifyEmailScreen() {
           </View>
           <Text style={[text.h2, styles.title]}>Verify Your Email</Text>
           <Text style={[text.bodySmall, styles.subtitle]}>
-            We've sent a 6-digit code to
+            {"We've sent a 6-digit code to"}
           </Text>
           <Text style={[text.bodySmall, styles.email]}>{email}</Text>
         </View>
@@ -250,7 +250,7 @@ export default function VerifyEmailScreen() {
 
             {/* Resend Code */}
             <View style={styles.resendContainer}>
-              <Text style={styles.resendText}>Didn't receive the code?</Text>
+              <Text style={styles.resendText}>{"Didn't receive the code?"}</Text>
               {canResend ? (
                 <Pressable onPress={handleResend} disabled={isLoading}>
                   <Text style={[styles.resendLink, isLoading && styles.resendLinkDisabled]}>
@@ -268,7 +268,7 @@ export default function VerifyEmailScreen() {
         <View style={styles.helpContainer}>
           <Ionicons name="information-circle-outline" size={16} color={SEMANTIC.text.tertiary} />
           <Text style={styles.helpText}>
-            The verification code is valid for 10 minutes. Check your spam folder if you don't see it.
+            {"The verification code is valid for 10 minutes. Check your spam folder if you don't see it."}
           </Text>
         </View>
 

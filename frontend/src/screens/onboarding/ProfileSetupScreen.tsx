@@ -837,7 +837,7 @@ export default function ProfileSetupScreen() {
 
       <View style={styles.form}>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Doctor's Name</Text>
+          <Text style={styles.label}>{"Doctor's Name"}</Text>
           <TextInput
             style={styles.input}
             value={doctorInfo.doctorName}

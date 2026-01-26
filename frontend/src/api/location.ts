@@ -81,11 +81,11 @@ export interface SharedLocationResponse {
     bloodType?: string;
     allergies?: string[];
     medicalConditions?: string[];
-    emergencyContacts?: Array<{
+    emergencyContacts?: {
       name: string;
       relation: string;
       phone: string;
-    }>;
+    }[];
   };
   nearbyPlaces: NearbyPlace[];
   shareInfo: {

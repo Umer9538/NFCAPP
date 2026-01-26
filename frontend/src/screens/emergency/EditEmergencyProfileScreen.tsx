@@ -428,7 +428,7 @@ export default function EditEmergencyProfileScreen() {
         <View style={styles.emptyState}>
           <Pill size={48} color={GRAY[300]} />
           <Text style={styles.emptyTitle}>No medications added</Text>
-          <Text style={styles.emptyText}>Add your medications so responders know what you're taking</Text>
+          <Text style={styles.emptyText}>{"Add your medications so responders know what you're taking"}</Text>
         </View>
       )}
     </View>

@@ -444,7 +444,7 @@ export default function SubscriptionScreen() {
       >
         <View style={styles.modalContent}>
           <Text style={styles.modalText}>
-            Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period.
+            {"Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period."}
           </Text>
 
           <View style={styles.modalActions}>

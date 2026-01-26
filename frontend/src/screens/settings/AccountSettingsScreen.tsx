@@ -494,7 +494,7 @@ export default function AccountSettingsScreen() {
               </View>
               <Text style={styles.modalTitle}>Verify Your Email</Text>
               <Text style={styles.modalSubtitle}>
-                We've sent a verification code to{'\n'}
+                {"We've sent a verification code to"}{'\n'}
                 <Text style={styles.emailText}>{pendingEmail}</Text>
               </Text>
             </View>
@@ -523,7 +523,7 @@ export default function AccountSettingsScreen() {
 
             {/* Resend Link */}
             <View style={styles.resendContainer}>
-              <Text style={styles.resendLabel}>Didn't receive the code?</Text>
+              <Text style={styles.resendLabel}>{"Didn't receive the code?"}</Text>
               <Pressable
                 onPress={handleResendCode}
                 disabled={resendCooldown > 0 || isResending}

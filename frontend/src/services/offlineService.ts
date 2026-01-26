@@ -22,7 +22,7 @@ export interface SyncResult {
   success: number;
   failed: number;
   skipped: number;
-  errors: Array<{ requestId: string; error: string }>;
+  errors: { requestId: string; error: string }[];
 }
 
 const QUEUE_STORAGE_KEY = '@medguard_offline_queue';
@@ -336,8 +336,8 @@ class OfflineService {
     localData: any,
     serverData: any,
     idField: string = 'id'
-  ): Promise<Array<{ local: any; server: any; field: string }>> {
-    const conflicts: Array<{ local: any; server: any; field: string }> = [];
+  ): Promise<{ local: any; server: any; field: string }[]> {
+    const conflicts: { local: any; server: any; field: string }[] = [];
 
     // Check if both have same ID but different updatedAt
     if (localData[idField] === serverData[idField]) {

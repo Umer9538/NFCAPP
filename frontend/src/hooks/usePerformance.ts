@@ -3,8 +3,11 @@
  * Custom hooks for React performance optimization
  */
 
-import { useEffect, useRef, useMemo, useCallback, DependencyList } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback, DependencyList } from 'react';
 import { measureRender, trackScreenLoad, runAfterInteractions } from '@/utils/performance';
+
+// Re-export React for convenience
+import React from 'react';
 
 /**
  * Use memoized value with custom comparison
@@ -85,16 +88,16 @@ export function useInteractionEffect(
  * Track component render performance
  */
 export function useRenderTracking(componentName: string): void {
-  if (__DEV__) {
-    const renderMeasure = useRef(measureRender(componentName));
+  const renderMeasure = useRef(__DEV__ ? measureRender(componentName) : null);
 
-    useEffect(() => {
-      renderMeasure.current.start();
-      return () => {
-        renderMeasure.current.end();
-      };
-    });
-  }
+  useEffect(() => {
+    if (!__DEV__ || !renderMeasure.current) return;
+
+    renderMeasure.current.start();
+    return () => {
+      renderMeasure.current?.end();
+    };
+  });
 }
 
 /**
@@ -273,7 +276,7 @@ export function useBatchedState<T>(
   initialState: T
 ): [T, (value: T | ((prev: T) => T)) => void] {
   const [state, setState] = React.useState(initialState);
-  const updateQueue = useRef<Array<T | ((prev: T) => T)>>([]);
+  const updateQueue = useRef<(T | ((prev: T) => T))[]>([]);
   const isProcessing = useRef(false);
 
   const batchedSetState = useCallback((value: T | ((prev: T) => T)) => {
@@ -315,6 +318,3 @@ export function usePrefetch<T>(
     }
   }, [enabled, ...queryKey]);
 }
-
-// Re-export React for convenience
-import React from 'react';

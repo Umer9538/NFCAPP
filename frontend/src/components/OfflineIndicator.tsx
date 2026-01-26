@@ -167,11 +167,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: 12,
     lineHeight: typography.lineHeight.normal * typography.fontSize.sm,
     color: '#fff',
     fontWeight: '700',
-    fontSize: 12,
   },
   syncIcon: {
     // Animation would be applied via Animated.View in a production app

@@ -279,8 +279,9 @@ export default function SetupOrganizationScreen() {
           {/* Info Text */}
           <View style={styles.infoContainer}>
             <Text style={styles.infoText}>
-              After creating your organization, you'll be able to invite{' '}
-              {dashboardConfig.terminology.users.toLowerCase()} and manage their medical profiles.
+              {"After creating your organization, you'll be able to invite "}
+              {dashboardConfig.terminology.users.toLowerCase()}
+              {" and manage their medical profiles."}
             </Text>
           </View>
         </ScrollView>

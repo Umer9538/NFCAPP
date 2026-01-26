@@ -288,8 +288,7 @@ export default function HealthRemindersScreen() {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={20} color={PRIMARY[600]} />
           <Text style={styles.infoText}>
-            Set up reminders for medications and health checks. You'll receive notifications
-            at the scheduled times.
+            {"Set up reminders for medications and health checks. You'll receive notifications at the scheduled times."}
           </Text>
         </View>
 
