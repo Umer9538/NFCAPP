@@ -17,7 +17,12 @@ export const linkingConfig: LinkingOptions<any> = {
           Login: 'login',
           Signup: 'signup',
           ForgotPassword: 'forgot-password',
-          ResetPassword: 'reset-password',
+          ResetPassword: {
+            path: 'reset-password/:token',
+            parse: {
+              token: (token: string) => token,
+            },
+          },
           TwoFactorAuth: '2fa',
           BiometricSetup: 'biometric-setup',
         },
@@ -102,6 +107,7 @@ export function getNavigationFromNotification(data: any): {
     '/settings/security': { screen: 'SecuritySettings' },
     '/settings/notifications': { screen: 'NotificationSettings' },
     '/settings/subscription': { screen: 'SettingsScreen' },
+    '/forgot-password': { screen: 'ForgotPassword' },
   };
 
   // Check for direct match
@@ -115,6 +121,24 @@ export function getNavigationFromNotification(data: any): {
     return {
       screen: 'EmergencyProfile',
       params: { braceletId: emergencyMatch[1] },
+    };
+  }
+
+  // Check for reset-password with token
+  const resetPasswordMatch = actionUrl.match(/^\/reset-password\/(.+)$/);
+  if (resetPasswordMatch) {
+    return {
+      screen: 'ResetPassword',
+      params: { token: resetPasswordMatch[1] },
+    };
+  }
+
+  // Check for reset-password with query param
+  const resetPasswordQueryMatch = actionUrl.match(/^\/reset-password\?token=(.+)$/);
+  if (resetPasswordQueryMatch) {
+    return {
+      screen: 'ResetPassword',
+      params: { token: resetPasswordQueryMatch[1] },
     };
   }
 

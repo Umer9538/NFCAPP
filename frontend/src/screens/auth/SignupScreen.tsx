@@ -3,7 +3,7 @@
  * User registration with password strength indicator
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   SafeAreaView,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +32,8 @@ import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
+import { checkEmailAvailability } from '@/api/auth';
+import * as WebBrowser from 'expo-web-browser';
 import { signupSchema, type SignupFormData, calculatePasswordStrength, type PasswordStrengthResult } from '@/utils/validationSchemas';
 import { containers, text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC, STATUS } from '@/constants/colors';
@@ -49,6 +52,19 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrengthResult | null>(null);
+
+  // Email validation state
+  const [emailStatus, setEmailStatus] = useState<{
+    status: 'idle' | 'checking' | 'valid' | 'invalid' | 'taken';
+    message?: string;
+  }>({ status: 'idle' });
+  const emailCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Password match state for real-time validation
+  const [passwordMatchStatus, setPasswordMatchStatus] = useState<{
+    status: 'idle' | 'match' | 'mismatch';
+    message?: string;
+  }>({ status: 'idle' });
 
   // Animation values
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -134,6 +150,7 @@ export default function SignupScreen() {
   });
 
   const password = watch('password');
+  const confirmPassword = watch('confirmPassword');
 
   // Calculate password strength as user types
   useEffect(() => {
@@ -143,6 +160,100 @@ export default function SignupScreen() {
       setPasswordStrength(null);
     }
   }, [password]);
+
+  // Real-time password match validation
+  useEffect(() => {
+    if (!confirmPassword || confirmPassword.length === 0) {
+      setPasswordMatchStatus({ status: 'idle' });
+      return;
+    }
+
+    if (!password || password.length === 0) {
+      setPasswordMatchStatus({ status: 'idle' });
+      return;
+    }
+
+    if (password === confirmPassword) {
+      setPasswordMatchStatus({ status: 'match', message: 'Passwords match' });
+    } else {
+      setPasswordMatchStatus({ status: 'mismatch', message: 'Passwords do not match' });
+    }
+  }, [password, confirmPassword]);
+
+  // Email format validation regex
+  const isValidEmailFormat = useCallback((email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }, []);
+
+  // Check email availability (debounced, on blur)
+  const checkEmail = useCallback(async (email: string) => {
+    // Clear any pending timeout
+    if (emailCheckTimeoutRef.current) {
+      clearTimeout(emailCheckTimeoutRef.current);
+    }
+
+    // Reset if empty
+    if (!email || email.trim() === '') {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    // Check format first
+    if (!isValidEmailFormat(email)) {
+      setEmailStatus({ status: 'invalid', message: 'Invalid email format' });
+      return;
+    }
+
+    // Set checking status
+    setEmailStatus({ status: 'checking' });
+
+    try {
+      const result = await checkEmailAvailability(email);
+      if (result.available) {
+        setEmailStatus({ status: 'valid', message: 'Email is available' });
+      } else {
+        setEmailStatus({ status: 'taken', message: 'Email is already registered' });
+      }
+    } catch {
+      // If API fails, just validate format
+      setEmailStatus({ status: 'valid', message: 'Email format is valid' });
+    }
+  }, [isValidEmailFormat]);
+
+  // Real-time email format validation as user types
+  const handleEmailChange = useCallback((email: string, onChange: (value: string) => void) => {
+    onChange(email);
+
+    // Clear any pending check
+    if (emailCheckTimeoutRef.current) {
+      clearTimeout(emailCheckTimeoutRef.current);
+    }
+
+    if (!email || email.trim() === '') {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    // Check format as user types (debounced)
+    emailCheckTimeoutRef.current = setTimeout(() => {
+      if (!isValidEmailFormat(email)) {
+        setEmailStatus({ status: 'invalid', message: 'Invalid email format' });
+      } else {
+        // Valid format, but don't check availability until blur
+        setEmailStatus({ status: 'idle' });
+      }
+    }, 500);
+  }, [isValidEmailFormat]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (emailCheckTimeoutRef.current) {
+        clearTimeout(emailCheckTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Show error toast
   useEffect(() => {
@@ -175,6 +286,32 @@ export default function SignupScreen() {
       showError(err?.message || 'Unable to create account. Please try again.');
     }
   };
+
+  // Open Terms of Service in browser
+  const openTermsOfService = useCallback(async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://medguard.app/terms-of-service', {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: PRIMARY[600],
+      });
+    } catch {
+      // Fallback to navigation if browser fails
+      navigation.navigate('TermsOfService');
+    }
+  }, [navigation]);
+
+  // Open Privacy Policy in browser
+  const openPrivacyPolicy = useCallback(async () => {
+    try {
+      await WebBrowser.openBrowserAsync('https://medguard.app/privacy-policy', {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: PRIMARY[600],
+      });
+    } catch {
+      // Fallback to navigation if browser fails
+      navigation.navigate('PrivacyPolicy');
+    }
+  }, [navigation]);
 
   const getStrengthColor = (strength: string) => {
     switch (strength) {
@@ -334,26 +471,55 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            {/* Email Input */}
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  label="Email"
-                  placeholder="john.doe@example.com"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.email?.message}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  leftIcon={<Ionicons name="mail-outline" size={20} color={SEMANTIC.text.tertiary} />}
-                  required
-                />
+            {/* Email Input with Real-time Validation */}
+            <View>
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Email"
+                    placeholder="john.doe@example.com"
+                    value={value}
+                    onChangeText={(text) => handleEmailChange(text, onChange)}
+                    onBlur={() => {
+                      onBlur();
+                      checkEmail(value);
+                    }}
+                    error={errors.email?.message || (emailStatus.status === 'taken' ? emailStatus.message : undefined)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    leftIcon={<Ionicons name="mail-outline" size={20} color={SEMANTIC.text.tertiary} />}
+                    rightIcon={
+                      emailStatus.status === 'checking' ? (
+                        <ActivityIndicator size="small" color={PRIMARY[600]} />
+                      ) : emailStatus.status === 'valid' ? (
+                        <Ionicons name="checkmark-circle" size={20} color={STATUS.success} />
+                      ) : emailStatus.status === 'taken' ? (
+                        <Ionicons name="close-circle" size={20} color={STATUS.error} />
+                      ) : emailStatus.status === 'invalid' ? (
+                        <Ionicons name="alert-circle" size={20} color={STATUS.error} />
+                      ) : null
+                    }
+                    required
+                  />
+                )}
+              />
+              {/* Email Status Message */}
+              {emailStatus.status === 'valid' && emailStatus.message && (
+                <View style={styles.emailStatusContainer}>
+                  <Ionicons name="checkmark-circle" size={14} color={STATUS.success} />
+                  <Text style={styles.emailStatusValid}>{emailStatus.message}</Text>
+                </View>
               )}
-            />
+              {emailStatus.status === 'invalid' && emailStatus.message && !errors.email?.message && (
+                <View style={styles.emailStatusContainer}>
+                  <Ionicons name="alert-circle" size={14} color={STATUS.error} />
+                  <Text style={styles.emailStatusInvalid}>{emailStatus.message}</Text>
+                </View>
+              )}
+            </View>
 
             {/* Phone Number Input (Optional) */}
             <Controller
@@ -460,32 +626,52 @@ export default function SignupScreen() {
               </View>
             )}
 
-            {/* Confirm Password Input */}
-            <Controller
-              control={control}
-              name="confirmPassword"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  label="Confirm Password"
-                  placeholder="Confirm your password"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.confirmPassword?.message}
-                  secureTextEntry={!showConfirmPassword}
-                  leftIcon={<Ionicons name="lock-closed-outline" size={20} color={SEMANTIC.text.tertiary} />}
-                  rightIcon={
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={SEMANTIC.text.tertiary}
-                    />
-                  }
-                  onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  required
-                />
+            {/* Confirm Password Input with Real-time Match Validation */}
+            <View>
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="Confirm Password"
+                    placeholder="Confirm your password"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    error={errors.confirmPassword?.message || (passwordMatchStatus.status === 'mismatch' && value.length > 0 ? passwordMatchStatus.message : undefined)}
+                    secureTextEntry={!showConfirmPassword}
+                    leftIcon={<Ionicons name="lock-closed-outline" size={20} color={SEMANTIC.text.tertiary} />}
+                    rightIcon={
+                      <View style={styles.confirmPasswordIcons}>
+                        {/* Match Status Icon */}
+                        {passwordMatchStatus.status === 'match' && (
+                          <Ionicons name="checkmark-circle" size={20} color={STATUS.success} style={styles.matchIcon} />
+                        )}
+                        {passwordMatchStatus.status === 'mismatch' && value.length > 0 && (
+                          <Ionicons name="close-circle" size={20} color={STATUS.error} style={styles.matchIcon} />
+                        )}
+                        {/* Show/Hide Password Icon */}
+                        <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                          <Ionicons
+                            name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                            size={20}
+                            color={SEMANTIC.text.tertiary}
+                          />
+                        </Pressable>
+                      </View>
+                    }
+                    required
+                  />
+                )}
+              />
+              {/* Password Match Status Message */}
+              {passwordMatchStatus.status === 'match' && (
+                <View style={styles.passwordMatchContainer}>
+                  <Ionicons name="checkmark-circle" size={14} color={STATUS.success} />
+                  <Text style={styles.passwordMatchValid}>{passwordMatchStatus.message}</Text>
+                </View>
               )}
-            />
+            </View>
 
             {/* Terms and Conditions */}
             <Controller
@@ -508,7 +694,7 @@ export default function SignupScreen() {
                         style={styles.termsLink}
                         onPress={(e) => {
                           e.stopPropagation();
-                          navigation.navigate('TermsOfService');
+                          openTermsOfService();
                         }}
                       >
                         Terms of Service
@@ -518,7 +704,7 @@ export default function SignupScreen() {
                         style={styles.termsLink}
                         onPress={(e) => {
                           e.stopPropagation();
-                          navigation.navigate('PrivacyPolicy');
+                          openPrivacyPolicy();
                         }}
                       >
                         Privacy Policy
@@ -658,6 +844,43 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     flex: 1,
+  },
+  emailStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginTop: spacing[1],
+    paddingHorizontal: spacing[1],
+  },
+  emailStatusValid: {
+    fontSize: 12,
+    color: STATUS.success,
+    fontWeight: '500',
+  },
+  emailStatusInvalid: {
+    fontSize: 12,
+    color: STATUS.error,
+    fontWeight: '500',
+  },
+  confirmPasswordIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  matchIcon: {
+    marginRight: spacing[1],
+  },
+  passwordMatchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    marginTop: spacing[1],
+    paddingHorizontal: spacing[1],
+  },
+  passwordMatchValid: {
+    fontSize: 12,
+    color: STATUS.success,
+    fontWeight: '500',
   },
   strengthContainer: {
     marginTop: -spacing[2],

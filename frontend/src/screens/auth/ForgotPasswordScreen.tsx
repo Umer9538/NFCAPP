@@ -30,6 +30,7 @@ import { text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC, GRAY, STATUS } from '@/constants/colors';
 import { spacing } from '@/theme/theme';
 import { authApi } from '@/api/auth';
+import { calculatePasswordStrength, type PasswordStrengthResult } from '@/utils/validationSchemas';
 
 // Step types
 type Step = 'email' | 'otp' | 'password';
@@ -75,6 +76,9 @@ export default function ForgotPasswordScreen() {
   // Password visibility
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password strength
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrengthResult | null>(null);
 
   // OTP input refs
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
@@ -234,10 +238,10 @@ export default function ForgotPasswordScreen() {
         confirmPassword: data.confirmPassword,
       }),
     onSuccess: () => {
-      success('Password reset! You can now sign in.');
+      success('Password updated successfully!');
       setTimeout(() => {
         navigation.navigate('Login');
-      }, 1500);
+      }, 3000);
     },
     onError: (error: any) => {
       const msg = (error?.message || '').toLowerCase();
@@ -546,7 +550,14 @@ export default function ForgotPasswordScreen() {
                       label="New Password"
                       placeholder="Enter new password"
                       value={value}
-                      onChangeText={onChange}
+                      onChangeText={(text) => {
+                        onChange(text);
+                        if (text.length > 0) {
+                          setPasswordStrength(calculatePasswordStrength(text));
+                        } else {
+                          setPasswordStrength(null);
+                        }
+                      }}
                       onBlur={onBlur}
                       error={passwordForm.formState.errors.newPassword?.message}
                       secureTextEntry={!showNewPassword}
@@ -571,6 +582,66 @@ export default function ForgotPasswordScreen() {
                     />
                   )}
                 />
+
+                {/* Password Strength Indicator */}
+                {passwordStrength && (
+                  <View style={styles.strengthContainer}>
+                    {/* Strength Bar */}
+                    <View style={styles.strengthBarContainer}>
+                      <View
+                        style={[
+                          styles.strengthBar,
+                          {
+                            width: `${passwordStrength.percentage}%`,
+                            backgroundColor:
+                              passwordStrength.strength === 'weak'
+                                ? STATUS.error.main
+                                : passwordStrength.strength === 'medium'
+                                ? STATUS.warning.main
+                                : STATUS.success.main,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.strengthLabel,
+                        {
+                          color:
+                            passwordStrength.strength === 'weak'
+                              ? STATUS.error.main
+                              : passwordStrength.strength === 'medium'
+                              ? STATUS.warning.main
+                              : STATUS.success.main,
+                        },
+                      ]}
+                    >
+                      {passwordStrength.strength.charAt(0).toUpperCase() +
+                        passwordStrength.strength.slice(1)}
+                    </Text>
+
+                    {/* Requirements Checklist */}
+                    <View style={styles.requirementsList}>
+                      {passwordStrength.requirements.map((req) => (
+                        <View key={req.id} style={styles.requirementItem}>
+                          <Ionicons
+                            name={req.met ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={16}
+                            color={req.met ? STATUS.success.main : GRAY[400]}
+                          />
+                          <Text
+                            style={[
+                              styles.requirementText,
+                              req.met && styles.requirementTextMet,
+                            ]}
+                          >
+                            {req.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
 
                 {/* Confirm Password */}
                 <Controller
@@ -607,18 +678,6 @@ export default function ForgotPasswordScreen() {
                   )}
                 />
 
-                {/* Password requirements */}
-                <View style={styles.passwordHint}>
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={16}
-                    color={SEMANTIC.text.tertiary}
-                  />
-                  <Text style={styles.passwordHintText}>
-                    Min 8 characters, 1 uppercase, 1 lowercase, 1 number
-                  </Text>
-                </View>
-
                 <Button
                   fullWidth
                   onPress={passwordForm.handleSubmit(handlePasswordSubmit)}
@@ -643,7 +702,7 @@ export default function ForgotPasswordScreen() {
               {step === 'email'
                 ? "If you don't receive an email within 5 minutes, check your spam folder"
                 : step === 'otp'
-                ? 'The code expires in 10 minutes'
+                ? 'The code expires in 15 minutes'
                 : 'Choose a password you have not used before'}
             </Text>
           </Animated.View>
@@ -777,20 +836,40 @@ const styles = StyleSheet.create({
   resendLinkDisabled: {
     color: GRAY[400],
   },
-  // Password hint
-  passwordHint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  // Password Strength Indicator
+  strengthContainer: {
     gap: spacing[2],
-    backgroundColor: GRAY[50],
-    padding: spacing[3],
-    borderRadius: 8,
   },
-  passwordHintText: {
-    flex: 1,
+  strengthBarContainer: {
+    height: 6,
+    backgroundColor: GRAY[200],
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  strengthBar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strengthLabel: {
     fontSize: 12,
-    color: SEMANTIC.text.tertiary,
-    lineHeight: 18,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  requirementsList: {
+    gap: spacing[1],
+    marginTop: spacing[1],
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  requirementText: {
+    fontSize: 13,
+    color: GRAY[500],
+  },
+  requirementTextMet: {
+    color: SEMANTIC.text.primary,
   },
   // Help
   helpContainer: {

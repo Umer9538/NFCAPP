@@ -50,6 +50,13 @@ export default function LoginScreen() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [autoTriggered, setAutoTriggered] = useState(false);
 
+  // Inline error state for better UX
+  const [loginError, setLoginError] = useState<{
+    type: 'none' | 'not_found' | 'wrong_password' | 'not_verified' | 'locked' | 'general';
+    message: string;
+    userId?: string;
+  }>({ type: 'none', message: '' });
+
   // Animation values
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -215,6 +222,9 @@ export default function LoginScreen() {
   };
 
   const onSubmit = async (data: LoginFormData) => {
+    // Clear previous errors
+    setLoginError({ type: 'none', message: '' });
+
     try {
       const response = await login(data.email, data.password);
 
@@ -226,18 +236,11 @@ export default function LoginScreen() {
       } else {
         // Check if user is suspended
         if (response.user?.suspended) {
-          Alert.alert(
-            'Account Suspended',
-            'Your account has been suspended by your organization administrator. Please contact your administrator for assistance.',
-            [
-              {
-                text: 'OK',
-                onPress: async () => {
-                  await logout();
-                },
-              },
-            ]
-          );
+          setLoginError({
+            type: 'locked',
+            message: 'Your account has been suspended. Please contact your administrator.',
+          });
+          await logout();
           return;
         }
 
@@ -245,31 +248,47 @@ export default function LoginScreen() {
         // Navigation handled by RootNavigator
       }
     } catch (err: any) {
-      // Check if error is about email verification
+      const errorMessage = err?.message?.toLowerCase() || '';
+
+      // Check specific error types for inline display
       if (err?.requiresEmailVerification && err?.userId) {
-        Alert.alert(
-          'Email Verification Required',
-          'Please verify your email before signing in. Check your inbox for the verification code.',
-          [
-            {
-              text: 'Verify Email',
-              onPress: () => {
-                navigation.navigate('VerifyEmail', {
-                  email: data.email,
-                  userId: err.userId,
-                });
-              },
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-          ]
-        );
+        setLoginError({
+          type: 'not_verified',
+          message: 'Please verify your email first.',
+          userId: err.userId,
+        });
+      } else if (errorMessage.includes('not found') || errorMessage.includes('no account') || errorMessage.includes('user not found')) {
+        setLoginError({
+          type: 'not_found',
+          message: 'No account with this email exists.',
+        });
+      } else if (errorMessage.includes('password') || errorMessage.includes('incorrect') || errorMessage.includes('invalid credentials')) {
+        setLoginError({
+          type: 'wrong_password',
+          message: 'Incorrect password, please try again.',
+        });
+      } else if (errorMessage.includes('locked') || errorMessage.includes('too many attempts')) {
+        setLoginError({
+          type: 'locked',
+          message: 'Account locked due to too many failed attempts. Please try again later.',
+        });
       } else {
-        // The authStore already provides human-readable messages
-        showError(err?.message || 'Unable to sign in. Please check your credentials and try again.');
+        setLoginError({
+          type: 'general',
+          message: err?.message || 'Unable to sign in. Please check your credentials and try again.',
+        });
       }
+    }
+  };
+
+  // Handle resend verification email
+  const handleResendVerification = () => {
+    if (loginError.userId) {
+      const email = control._formValues.email;
+      navigation.navigate('VerifyEmail', {
+        email: email,
+        userId: loginError.userId,
+      });
     }
   };
 
@@ -320,6 +339,67 @@ export default function LoginScreen() {
         >
         <Card variant="elevated" padding="lg">
           <View style={styles.form}>
+            {/* Social Login Buttons */}
+            <View style={styles.socialButtonsContainer}>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={() => showError('Google Sign-In coming soon')}
+                icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
+                style={styles.socialButton}
+              >
+                Continue with Google
+              </Button>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={() => showError('Apple Sign-In coming soon')}
+                icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
+                style={styles.socialButton}
+              >
+                Continue with Apple
+              </Button>
+            </View>
+
+            {/* Divider - or sign in with email */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or sign in with email</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Inline Error Message */}
+            {loginError.type !== 'none' && (
+              <View style={[
+                styles.errorContainer,
+                loginError.type === 'not_verified' && styles.errorContainerWarning
+              ]}>
+                <Ionicons
+                  name={loginError.type === 'not_verified' ? 'warning' : 'alert-circle'}
+                  size={20}
+                  color={loginError.type === 'not_verified' ? '#F59E0B' : '#DC2626'}
+                />
+                <View style={styles.errorTextContainer}>
+                  <Text style={[
+                    styles.errorText,
+                    loginError.type === 'not_verified' && styles.errorTextWarning
+                  ]}>
+                    {loginError.message}
+                  </Text>
+                  {loginError.type === 'not_verified' && (
+                    <Pressable onPress={handleResendVerification}>
+                      <Text style={styles.resendLink}>Verify email now →</Text>
+                    </Pressable>
+                  )}
+                  {loginError.type === 'not_found' && (
+                    <Pressable onPress={() => navigation.navigate('AccountType')}>
+                      <Text style={styles.resendLink}>Create an account →</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            )}
+
             {/* Email Input */}
             <Controller
               control={control}
@@ -329,7 +409,10 @@ export default function LoginScreen() {
                   label="Email"
                   placeholder="Enter your email"
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={(text) => {
+                    onChange(text);
+                    if (loginError.type !== 'none') setLoginError({ type: 'none', message: '' });
+                  }}
                   onBlur={onBlur}
                   error={errors.email?.message}
                   keyboardType="email-address"
@@ -350,7 +433,10 @@ export default function LoginScreen() {
                   label="Password"
                   placeholder="Enter your password"
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={(text) => {
+                    onChange(text);
+                    if (loginError.type !== 'none') setLoginError({ type: 'none', message: '' });
+                  }}
                   onBlur={onBlur}
                   error={errors.password?.message}
                   secureTextEntry={!showPassword}
@@ -558,5 +644,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: PRIMARY[600],
     fontWeight: '600',
+  },
+  socialButtonsContainer: {
+    gap: spacing[3],
+  },
+  socialButton: {
+    backgroundColor: SEMANTIC.background.default,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: spacing[3],
+    gap: spacing[3],
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorContainerWarning: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  errorTextContainer: {
+    flex: 1,
+    gap: spacing[1],
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#DC2626',
+    lineHeight: 20,
+  },
+  errorTextWarning: {
+    color: '#B45309',
+  },
+  resendLink: {
+    fontSize: 14,
+    color: PRIMARY[600],
+    fontWeight: '600',
+    marginTop: spacing[1],
   },
 });

@@ -301,13 +301,39 @@ export async function verifyResetCode(data: VerifyResetCodeRequest): Promise<Ver
 }
 
 /**
- * Reset password with code
+ * Reset password with code (OTP-based)
  */
 export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
   if (data.newPassword !== data.confirmPassword) {
     throw new Error('Passwords do not match');
   }
   return await api.post<ResetPasswordResponse>(API_CONFIG.ENDPOINTS.AUTH.RESET_PASSWORD, data);
+}
+
+/**
+ * Validate reset password token (for email link-based reset)
+ */
+export async function validateResetToken(token: string): Promise<{
+  valid: boolean;
+  email?: string;
+  expired?: boolean;
+  used?: boolean;
+}> {
+  return await api.post('/api/auth/validate-reset-token', { token });
+}
+
+/**
+ * Reset password with token (for email link-based reset)
+ */
+export async function resetPasswordWithToken(data: {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<ResetPasswordResponse> {
+  if (data.newPassword !== data.confirmPassword) {
+    throw new Error('Passwords do not match');
+  }
+  return await api.post<ResetPasswordResponse>('/api/auth/reset-password-token', data);
 }
 
 /**
@@ -492,6 +518,8 @@ export const authApi = {
   forgotPassword,
   verifyResetCode,
   resetPassword,
+  validateResetToken,
+  resetPasswordWithToken,
   changePassword,
   refreshToken,
   validateToken,
