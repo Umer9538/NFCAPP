@@ -1,26 +1,21 @@
 /**
  * useGoogleAuth Hook
- * Handles Google OAuth authentication using expo-auth-session
+ * Handles Google OAuth authentication using native Google Sign-In
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import {
+  GoogleSignin,
+  isSuccessResponse,
+  isErrorWithCode,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { api } from '@/api/client';
 import { useAuthStore } from '@/store/authStore';
-import { API_CONFIG } from '@/constants';
-
-// Complete any pending auth sessions
-WebBrowser.maybeCompleteAuthSession();
 
 // Google OAuth Client IDs
-// Web Client ID is used for Expo Go development (needs https:// redirect URI in Google Console)
-// iOS/Android Client IDs are used for standalone/development builds
 const WEB_CLIENT_ID = '522012003528-41fip6qmov18st5idr1hg2cb1bptmqk5.apps.googleusercontent.com';
 const IOS_CLIENT_ID = '522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf.apps.googleusercontent.com';
-// EAS Build Android Client ID (SHA-1: 45:F8:60:21:8A:B2:01:32:27:1E:F1:ED:0F:DB:3D:CE:33:89:AE:04)
-const ANDROID_CLIENT_ID = '522012003528-uv62nf03jhg8qs7mbt8v68nram8qjn8i.apps.googleusercontent.com';
 
 interface GoogleAuthResult {
   success: boolean;
@@ -29,60 +24,43 @@ interface GoogleAuthResult {
   error?: string;
 }
 
-interface GoogleAuthTokens {
-  accessToken?: string;
-  idToken?: string;
-}
-
 /**
  * Hook for Google OAuth authentication
  */
 export function useGoogleAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(false);
 
   const setUser = useAuthStore((state) => state.setUser);
   const setTokens = useAuthStore((state) => state.setTokens);
 
-  // Configure Google auth request
-  // The provider automatically handles redirect URIs based on platform
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: WEB_CLIENT_ID,
-    iosClientId: IOS_CLIENT_ID,
-    androidClientId: ANDROID_CLIENT_ID,
-    scopes: ['openid', 'profile', 'email'],
-  });
-
-  // Log configuration for debugging
+  // Configure Google Sign-In on mount
   useEffect(() => {
-    if (__DEV__ && request) {
-      console.log('🔐 Google OAuth configured');
-      console.log('🔐 Platform:', Platform.OS);
-      console.log('🔐 Using Client ID:', Platform.select({
-        ios: IOS_CLIENT_ID,
-        android: ANDROID_CLIENT_ID,
-        default: WEB_CLIENT_ID,
-      }));
+    try {
+      GoogleSignin.configure({
+        webClientId: WEB_CLIENT_ID, // Required for ID token
+        iosClientId: IOS_CLIENT_ID, // iOS specific
+        offlineAccess: true, // Get refresh token
+        scopes: ['profile', 'email'],
+      });
+      setIsConfigured(true);
+      console.log('🔐 Google Sign-In configured');
+    } catch (err) {
+      console.error('Failed to configure Google Sign-In:', err);
+      setError('Google Sign-In configuration failed');
     }
-  }, [request]);
+  }, []);
 
   /**
-   * Handle Google sign-in response
+   * Handle successful Google sign-in
    */
   const handleGoogleResponse = useCallback(async (
-    authentication: GoogleAuthTokens
+    idToken: string,
+    accessToken?: string | null
   ): Promise<GoogleAuthResult> => {
     setIsLoading(true);
     setError(null);
-
-    // Ensure we have an ID token
-    if (!authentication.idToken) {
-      setIsLoading(false);
-      return {
-        success: false,
-        error: 'No ID token received from Google. Please try again.',
-      };
-    }
 
     try {
       // Send the ID token to our backend for verification
@@ -95,8 +73,8 @@ export function useGoogleAuth() {
         user: any;
         message: string;
       }>('/api/auth/google/mobile', {
-        idToken: authentication.idToken,
-        accessToken: authentication.accessToken,
+        idToken,
+        accessToken,
       });
 
       if (result.success) {
@@ -131,27 +109,13 @@ export function useGoogleAuth() {
   }, [setTokens, setUser]);
 
   /**
-   * Process auth response when it changes
-   */
-  useEffect(() => {
-    if (response?.type === 'success' && response.authentication) {
-      handleGoogleResponse({
-        accessToken: response.authentication.accessToken,
-        idToken: response.authentication.idToken,
-      });
-    } else if (response?.type === 'error') {
-      setError(response.error?.message || 'Google sign-in was cancelled or failed.');
-    }
-  }, [response, handleGoogleResponse]);
-
-  /**
    * Initiate Google sign-in
    */
   const signInWithGoogle = useCallback(async (): Promise<GoogleAuthResult> => {
-    if (!request) {
+    if (!isConfigured) {
       return {
         success: false,
-        error: 'Google sign-in is not available. Please try again later.',
+        error: 'Google Sign-In is not configured. Please try again later.',
       };
     }
 
@@ -159,19 +123,27 @@ export function useGoogleAuth() {
     setError(null);
 
     try {
-      const result = await promptAsync();
+      // Check if Google Play Services are available (Android)
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-      if (result.type === 'success' && result.authentication) {
-        return await handleGoogleResponse({
-          accessToken: result.authentication.accessToken,
-          idToken: result.authentication.idToken,
-        });
-      } else if (result.type === 'cancel') {
-        setIsLoading(false);
-        return {
-          success: false,
-          error: 'Sign-in was cancelled.',
-        };
+      // Sign in
+      const response = await GoogleSignin.signIn();
+
+      if (isSuccessResponse(response)) {
+        const { idToken } = response.data;
+
+        if (!idToken) {
+          setIsLoading(false);
+          return {
+            success: false,
+            error: 'No ID token received from Google. Please try again.',
+          };
+        }
+
+        // Get access token if available
+        const tokens = await GoogleSignin.getTokens();
+
+        return await handleGoogleResponse(idToken, tokens?.accessToken);
       } else {
         setIsLoading(false);
         return {
@@ -181,20 +153,50 @@ export function useGoogleAuth() {
       }
     } catch (err: any) {
       setIsLoading(false);
-      const errorMessage = err?.message || 'Google sign-in failed. Please try again.';
+
+      let errorMessage = 'Google sign-in failed. Please try again.';
+
+      if (isErrorWithCode(err)) {
+        switch (err.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            errorMessage = 'Sign-in was cancelled.';
+            break;
+          case statusCodes.IN_PROGRESS:
+            errorMessage = 'Sign-in is already in progress.';
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            errorMessage = 'Google Play Services is not available. Please update it.';
+            break;
+          default:
+            errorMessage = err.message || errorMessage;
+        }
+      }
+
       setError(errorMessage);
       return {
         success: false,
         error: errorMessage,
       };
     }
-  }, [request, promptAsync, handleGoogleResponse]);
+  }, [isConfigured, handleGoogleResponse]);
+
+  /**
+   * Sign out from Google
+   */
+  const signOutFromGoogle = useCallback(async () => {
+    try {
+      await GoogleSignin.signOut();
+    } catch (err) {
+      console.error('Google sign-out error:', err);
+    }
+  }, []);
 
   return {
     signInWithGoogle,
+    signOutFromGoogle,
     isLoading,
     error,
-    isReady: !!request,
+    isReady: isConfigured,
     clearError: () => setError(null),
   };
 }

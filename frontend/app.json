@@ -99,7 +99,13 @@
           "mode": "production"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
