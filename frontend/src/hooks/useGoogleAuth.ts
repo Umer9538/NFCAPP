@@ -17,11 +17,36 @@ import { useAuthStore } from '@/store/authStore';
 const WEB_CLIENT_ID = '522012003528-41fip6qmov18st5idr1hg2cb1bptmqk5.apps.googleusercontent.com';
 const IOS_CLIENT_ID = '522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf.apps.googleusercontent.com';
 
-interface GoogleAuthResult {
+// Google user data returned when signup is needed
+export interface GoogleUserData {
+  email: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  picture: string;
+  googleId: string;
+  emailVerified: boolean;
+  idToken: string;
+  accessToken?: string;
+}
+
+export interface GoogleAuthResult {
   success: boolean;
+  needsSignup?: boolean;
+  googleData?: GoogleUserData;
   isNewUser?: boolean;
   requiresProfileSetup?: boolean;
   error?: string;
+}
+
+export interface CompleteSignupData {
+  fullName: string;
+  username: string;
+  email: string;
+  googleId: string;
+  idToken: string;
+  accessToken?: string;
+  accountType?: 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION';
 }
 
 /**
@@ -53,7 +78,7 @@ export function useGoogleAuth() {
   }, []);
 
   /**
-   * Handle successful Google sign-in
+   * Handle Google sign-in response from backend
    */
   const handleGoogleResponse = useCallback(async (
     idToken: string,
@@ -66,18 +91,31 @@ export function useGoogleAuth() {
       // Send the ID token to our backend for verification
       const result = await api.post<{
         success: boolean;
-        isNewUser: boolean;
-        requiresProfileSetup: boolean;
-        token: string;
-        accessToken: string;
-        user: any;
+        needsSignup?: boolean;
+        googleData?: GoogleUserData;
+        isNewUser?: boolean;
+        requiresProfileSetup?: boolean;
+        token?: string;
+        accessToken?: string;
+        user?: any;
         message: string;
       }>('/api/auth/google/mobile', {
         idToken,
         accessToken,
       });
 
-      if (result.success) {
+      // New user - needs to complete signup
+      if (result.success && result.needsSignup && result.googleData) {
+        setIsLoading(false);
+        return {
+          success: true,
+          needsSignup: true,
+          googleData: result.googleData,
+        };
+      }
+
+      // Existing user - logged in successfully
+      if (result.success && result.token && result.user) {
         // Set tokens in auth store
         await setTokens(result.token, result.token);
 
@@ -86,6 +124,7 @@ export function useGoogleAuth() {
 
         return {
           success: true,
+          needsSignup: false,
           isNewUser: result.isNewUser,
           requiresProfileSetup: result.requiresProfileSetup,
         };
@@ -98,6 +137,59 @@ export function useGoogleAuth() {
     } catch (err: any) {
       console.error('Google auth error:', err);
       const errorMessage = err?.message || 'Google sign-in failed. Please try again.';
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setTokens, setUser]);
+
+  /**
+   * Complete Google signup with username
+   */
+  const completeGoogleSignup = useCallback(async (
+    data: CompleteSignupData
+  ): Promise<GoogleAuthResult> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await api.post<{
+        success: boolean;
+        isNewUser: boolean;
+        requiresProfileSetup: boolean;
+        token: string;
+        accessToken: string;
+        user: any;
+        message: string;
+        error?: string;
+      }>('/api/auth/google/mobile/complete', data);
+
+      if (result.success && result.token && result.user) {
+        // Set tokens in auth store
+        await setTokens(result.token, result.token);
+
+        // Set user data
+        setUser(result.user);
+
+        return {
+          success: true,
+          needsSignup: false,
+          isNewUser: true,
+          requiresProfileSetup: result.requiresProfileSetup,
+        };
+      }
+
+      return {
+        success: false,
+        error: result.error || 'Failed to complete signup. Please try again.',
+      };
+    } catch (err: any) {
+      console.error('Google signup completion error:', err);
+      const errorMessage = err?.message || 'Failed to complete signup. Please try again.';
       setError(errorMessage);
       return {
         success: false,
@@ -193,6 +285,7 @@ export function useGoogleAuth() {
 
   return {
     signInWithGoogle,
+    completeGoogleSignup,
     signOutFromGoogle,
     isLoading,
     error,

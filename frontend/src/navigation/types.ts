@@ -26,10 +26,23 @@ export type OnboardingStackParamList = {
   OnboardingComplete: undefined;
 };
 
+// Google OAuth data passed to signup screen
+export interface GoogleOAuthData {
+  email: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  picture: string;
+  googleId: string;
+  emailVerified: boolean;
+  idToken: string;
+  accessToken?: string;
+}
+
 export type AuthStackParamList = {
   Login: undefined;
   AccountType: undefined;
-  Signup: { accountType?: AccountType };
+  Signup: { accountType?: AccountType; googleOAuth?: GoogleOAuthData };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
   VerifyEmail: { email: string; userId?: string };

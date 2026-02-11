@@ -171,10 +171,19 @@ export default function LoginScreen() {
       const result = await signInWithGoogle();
 
       if (result.success) {
+        // New user - needs to complete signup
+        if (result.needsSignup && result.googleData) {
+          success('Please complete your registration');
+          // Navigate to signup with Google data pre-filled
+          navigation.navigate('Signup', {
+            googleOAuth: result.googleData,
+          });
+          return;
+        }
+
+        // Existing user - logged in
         if (result.requiresProfileSetup) {
-          // Navigate to profile setup if needed
           success('Signed in with Google! Please complete your profile.');
-          // Profile setup navigation is handled by RootNavigator based on profileComplete flag
         } else {
           success('Signed in with Google!');
         }

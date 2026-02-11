@@ -27,30 +27,30 @@
       "ios": {
         "resourceClass": "m1-medium"
       },
-      "android":{
+      "android": {
         "gradleCommand": ":app:assembleRelease",
         "buildType": "apk"
       },
       "env": {
-        "ANDROID_HOME":"/Users/mac/Library/Android/sdk",
-        "EXPO_PUBLIC_API_BASE_URL":"https://nfc-medical-profile-platform.vercel.app",
-        "EXPO_PUBLIC_API_TIMEOUT":"30000",
-        "EXPO_PUBLIC_ENABLE_MOCK_DATA":"false",
-        "EXPO_PUBLIC_ENVIRONMENT":"development",
-        "DATABASE_URL":"postgres://89ce5400db26b7e5b599d51f12009872619c6698d6ae42c9512e82d4cc5cec71:sk_dpCdmRaCEIHXCgwQ_wX_m@db.prisma.io:5432/postgres?sslmode=require",
-        "STORAGE_POSTGRES_URL":"postgres://89ce5400db26b7e5b599d51f12009872619c6698d6ae42c9512e82d4cc5cec71:sk_dpCdmRaCEIHXCgwQ_wX_m@db.prisma.io:5432/postgres?sslmode=require",
-        "EXPO_PUBLIC_APP_NAME":"MedID",
-        "EXPO_PUBLIC_APP_URL":"http://localhost:3000",
-        "EXPO_PUBLIC_ENABLE_2FA":"true",
-        "EXPO_PUBLIC_ENABLE_QR_CODE":"true",
-        "AUTH_SECRET":"9e5b0321d6c98741f250a44edc6942f205d72748929abe0a2aacaa48350a0c59a38e6cb87bd28f8063e3fdf553143438e9284f683c071a64f23d4d7e2636f117",
-        "JWT_SECRET":"1ee0401e4e481d89e85be605a4b56e1bff0cf8fda00e7f2379290684373d39e209813ab6a6764fda760ea7c2f8ca929adaae4057f250331086e72888d76df0c6",
-        "IPINFO_TOKEN":"322d81e165670d",
-        "SMTP_HOST":"smtp.gmail.com",
-        "SMTP_PORT":"587",
-        "SMTP_SECURE":"false",
-        "SMTP_USER":"roaan.dev@gmail.com",
-        "SMTP_PASSWORD":"ioafepqyllgbwbba"
+        "ANDROID_HOME": "/Users/mac/Library/Android/sdk",
+        "EXPO_PUBLIC_API_BASE_URL": "https://nfc-medical-profile-platform.vercel.app",
+        "EXPO_PUBLIC_API_TIMEOUT": "30000",
+        "EXPO_PUBLIC_ENABLE_MOCK_DATA": "false",
+        "EXPO_PUBLIC_ENVIRONMENT": "development",
+        "DATABASE_URL": "postgres://89ce5400db26b7e5b599d51f12009872619c6698d6ae42c9512e82d4cc5cec71:sk_dpCdmRaCEIHXCgwQ_wX_m@db.prisma.io:5432/postgres?sslmode=require",
+        "STORAGE_POSTGRES_URL": "postgres://89ce5400db26b7e5b599d51f12009872619c6698d6ae42c9512e82d4cc5cec71:sk_dpCdmRaCEIHXCgwQ_wX_m@db.prisma.io:5432/postgres?sslmode=require",
+        "EXPO_PUBLIC_APP_NAME": "MedID",
+        "EXPO_PUBLIC_APP_URL": "http://localhost:3000",
+        "EXPO_PUBLIC_ENABLE_2FA": "true",
+        "EXPO_PUBLIC_ENABLE_QR_CODE": "true",
+        "AUTH_SECRET": "9e5b0321d6c98741f250a44edc6942f205d72748929abe0a2aacaa48350a0c59a38e6cb87bd28f8063e3fdf553143438e9284f683c071a64f23d4d7e2636f117",
+        "JWT_SECRET": "1ee0401e4e481d89e85be605a4b56e1bff0cf8fda00e7f2379290684373d39e209813ab6a6764fda760ea7c2f8ca929adaae4057f250331086e72888d76df0c6",
+        "IPINFO_TOKEN": "322d81e165670d",
+        "SMTP_HOST": "smtp.gmail.com",
+        "SMTP_PORT": "587",
+        "SMTP_SECURE": "false",
+        "SMTP_USER": "roaan.dev@gmail.com",
+        "SMTP_PASSWORD": "ioafepqyllgbwbba"
       }
     }
   },

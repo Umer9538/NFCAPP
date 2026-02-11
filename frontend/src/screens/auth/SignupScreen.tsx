@@ -47,13 +47,16 @@ export default function SignupScreen() {
   const { toastConfig, hideToast, success, error: showError } = useToast();
   const {
     signInWithGoogle,
+    completeGoogleSignup,
     isLoading: googleLoading,
     error: googleError,
     isReady: googleReady,
   } = useGoogleAuth();
 
-  // Get account type from route params (defaults to 'individual')
+  // Get account type and Google OAuth data from route params
   const accountType = route.params?.accountType || 'individual';
+  const googleOAuth = route.params?.googleOAuth;
+  const isGoogleSignup = !!googleOAuth;
   const dashboardConfig = getDashboardConfig(accountType);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -143,18 +146,22 @@ export default function SignupScreen() {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      firstName: googleOAuth?.firstName || '',
+      lastName: googleOAuth?.lastName || '',
+      email: googleOAuth?.email || '',
+      password: isGoogleSignup ? 'GoogleOAuth123!' : '', // Placeholder for Google signup (not used)
+      confirmPassword: isGoogleSignup ? 'GoogleOAuth123!' : '', // Placeholder for Google signup (not used)
       phoneNumber: '',
       acceptTerms: false,
     },
   });
+
+  // Username state for Google signup
+  const [username, setUsername] = useState('');
 
   const password = watch('password');
   const confirmPassword = watch('confirmPassword');
@@ -278,18 +285,30 @@ export default function SignupScreen() {
   }, [googleError]);
 
   /**
-   * Handle Google sign-up
+   * Handle Google sign-up button click
    */
   const handleGoogleSignUp = async () => {
     try {
       const result = await signInWithGoogle();
 
       if (result.success) {
+        // New user - stay on this page with pre-filled data
+        if (result.needsSignup && result.googleData) {
+          // Re-navigate to this screen with Google data
+          navigation.setParams({ googleOAuth: result.googleData });
+          // Pre-fill the form fields
+          setValue('firstName', result.googleData.firstName || '');
+          setValue('lastName', result.googleData.lastName || '');
+          setValue('email', result.googleData.email);
+          success('Please enter a username to complete your registration');
+          return;
+        }
+
+        // Existing user logged in
         if (result.requiresProfileSetup) {
-          success('Signed up with Google! Please complete your profile.');
-          // Profile setup navigation is handled by RootNavigator based on profileComplete flag
+          success('Signed in with Google! Please complete your profile.');
         } else {
-          success('Account created with Google!');
+          success('Signed in with Google!');
         }
         // Navigation is handled by RootNavigator based on auth state
       } else if (result.error && !result.error.includes('cancelled')) {
@@ -297,6 +316,44 @@ export default function SignupScreen() {
       }
     } catch (err: any) {
       showError(err?.message || 'Google sign-up failed. Please try again.');
+    }
+  };
+
+  /**
+   * Handle Google signup completion (when user enters username)
+   */
+  const handleCompleteGoogleSignup = async () => {
+    if (!googleOAuth) return;
+
+    if (!username || username.trim().length < 3) {
+      showError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      showError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    try {
+      const result = await completeGoogleSignup({
+        fullName: `${googleOAuth.firstName} ${googleOAuth.lastName}`.trim() || googleOAuth.fullName,
+        username: username.trim(),
+        email: googleOAuth.email,
+        googleId: googleOAuth.googleId,
+        idToken: googleOAuth.idToken,
+        accessToken: googleOAuth.accessToken,
+        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION',
+      });
+
+      if (result.success) {
+        success('Account created successfully!');
+        // Navigation is handled by RootNavigator based on auth state
+      } else {
+        showError(result.error || 'Failed to create account');
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Failed to complete signup');
     }
   };
 
@@ -464,36 +521,52 @@ export default function SignupScreen() {
               </Pressable>
             </View>
 
-            {/* Social Sign Up Buttons */}
-            <View style={styles.socialButtonsContainer}>
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={handleGoogleSignUp}
-                loading={googleLoading}
-                disabled={!googleReady || googleLoading || isLoading}
-                icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
-                style={styles.socialButton}
-              >
-                {googleLoading ? 'Signing up...' : 'Continue with Google'}
-              </Button>
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={() => showError('Apple Sign-In coming soon')}
-                icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
-                style={styles.socialButton}
-              >
-                Continue with Apple
-              </Button>
-            </View>
+            {/* Google OAuth Banner (when signing up with Google) */}
+            {isGoogleSignup && (
+              <View style={[styles.googleBanner, { backgroundColor: `${dashboardConfig.themeColors.primary}10` }]}>
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+                <View style={styles.googleBannerText}>
+                  <Text style={styles.googleBannerTitle}>Signing up with Google</Text>
+                  <Text style={styles.googleBannerEmail}>{googleOAuth?.email}</Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={24} color={STATUS.success} />
+              </View>
+            )}
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or sign up with email</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {/* Social Sign Up Buttons - Only show when NOT in Google signup mode */}
+            {!isGoogleSignup && (
+              <>
+                <View style={styles.socialButtonsContainer}>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onPress={handleGoogleSignUp}
+                    loading={googleLoading}
+                    disabled={!googleReady || googleLoading || isLoading}
+                    icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
+                    style={styles.socialButton}
+                  >
+                    {googleLoading ? 'Signing up...' : 'Continue with Google'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onPress={() => showError('Apple Sign-In coming soon')}
+                    icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
+                    style={styles.socialButton}
+                  >
+                    Continue with Apple
+                  </Button>
+                </View>
+
+                {/* Divider */}
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or sign up with email</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+              </>
+            )}
 
             {/* Name Row */}
             <View style={styles.nameRow}>
@@ -539,6 +612,26 @@ export default function SignupScreen() {
               </View>
             </View>
 
+            {/* Username Input (Only for Google signup) */}
+            {isGoogleSignup && (
+              <Input
+                label="Username"
+                placeholder="johndoe"
+                value={username}
+                onChangeText={setUsername}
+                error={username.length > 0 && username.length < 3 ? 'Username must be at least 3 characters' : undefined}
+                autoCapitalize="none"
+                autoComplete="username"
+                leftIcon={<Ionicons name="at-outline" size={20} color={SEMANTIC.text.tertiary} />}
+                rightIcon={
+                  username.length >= 3 && /^[a-zA-Z0-9_]+$/.test(username) ? (
+                    <Ionicons name="checkmark-circle" size={20} color={STATUS.success} />
+                  ) : null
+                }
+                required
+              />
+            )}
+
             {/* Email Input with Real-time Validation */}
             <View>
               <Controller
@@ -549,8 +642,8 @@ export default function SignupScreen() {
                     label="Email"
                     placeholder="john.doe@example.com"
                     value={value}
-                    onChangeText={(text) => handleEmailChange(text, onChange)}
-                    onBlur={() => {
+                    onChangeText={isGoogleSignup ? undefined : (text) => handleEmailChange(text, onChange)}
+                    onBlur={isGoogleSignup ? undefined : () => {
                       onBlur();
                       checkEmail(value);
                     }}
@@ -558,9 +651,12 @@ export default function SignupScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
+                    editable={!isGoogleSignup}
                     leftIcon={<Ionicons name="mail-outline" size={20} color={SEMANTIC.text.tertiary} />}
                     rightIcon={
-                      emailStatus.status === 'checking' ? (
+                      isGoogleSignup ? (
+                        <Ionicons name="lock-closed" size={20} color={SEMANTIC.text.tertiary} />
+                      ) : emailStatus.status === 'checking' ? (
                         <ActivityIndicator size="small" color={PRIMARY[600]} />
                       ) : emailStatus.status === 'valid' ? (
                         <Ionicons name="checkmark-circle" size={20} color={STATUS.success} />
@@ -575,13 +671,13 @@ export default function SignupScreen() {
                 )}
               />
               {/* Email Status Message */}
-              {emailStatus.status === 'valid' && emailStatus.message && (
+              {!isGoogleSignup && emailStatus.status === 'valid' && emailStatus.message && (
                 <View style={styles.emailStatusContainer}>
                   <Ionicons name="checkmark-circle" size={14} color={STATUS.success} />
                   <Text style={styles.emailStatusValid}>{emailStatus.message}</Text>
                 </View>
               )}
-              {emailStatus.status === 'invalid' && emailStatus.message && !errors.email?.message && (
+              {!isGoogleSignup && emailStatus.status === 'invalid' && emailStatus.message && !errors.email?.message && (
                 <View style={styles.emailStatusContainer}>
                   <Ionicons name="alert-circle" size={14} color={STATUS.error} />
                   <Text style={styles.emailStatusInvalid}>{emailStatus.message}</Text>
@@ -608,7 +704,8 @@ export default function SignupScreen() {
               )}
             />
 
-            {/* Password Input */}
+            {/* Password Input - Hidden for Google signup */}
+            {!isGoogleSignup && (
             <Controller
               control={control}
               name="password"
@@ -634,9 +731,10 @@ export default function SignupScreen() {
                 />
               )}
             />
+            )}
 
-            {/* Password Strength Indicator */}
-            {passwordStrength && (
+            {/* Password Strength Indicator - Hidden for Google signup */}
+            {!isGoogleSignup && passwordStrength && (
               <View style={styles.strengthContainer}>
                 {/* Strength Bar */}
                 <View style={styles.strengthBarContainer}>
@@ -694,7 +792,8 @@ export default function SignupScreen() {
               </View>
             )}
 
-            {/* Confirm Password Input with Real-time Match Validation */}
+            {/* Confirm Password Input with Real-time Match Validation - Hidden for Google signup */}
+            {!isGoogleSignup && (
             <View>
               <Controller
                 control={control}
@@ -740,6 +839,7 @@ export default function SignupScreen() {
                 </View>
               )}
             </View>
+            )}
 
             {/* Terms and Conditions */}
             <Controller
@@ -789,11 +889,12 @@ export default function SignupScreen() {
             {/* Signup Button */}
             <Button
               fullWidth
-              onPress={handleSubmit(onSubmit)}
-              loading={isLoading}
+              onPress={isGoogleSignup ? handleCompleteGoogleSignup : handleSubmit(onSubmit)}
+              loading={isLoading || googleLoading}
+              disabled={isGoogleSignup ? (!username || username.length < 3) : false}
               style={styles.signupButton}
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading || googleLoading ? 'Creating account...' : 'Create Account'}
             </Button>
           </View>
         </Card>
@@ -1096,5 +1197,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: SEMANTIC.text.tertiary,
     fontWeight: '600',
+  },
+  googleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing[3],
+    borderRadius: 12,
+    gap: spacing[3],
+    marginBottom: spacing[2],
+  },
+  googleBannerText: {
+    flex: 1,
+  },
+  googleBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: SEMANTIC.text.primary,
+  },
+  googleBannerEmail: {
+    fontSize: 13,
+    color: SEMANTIC.text.secondary,
+    marginTop: 2,
   },
 });
