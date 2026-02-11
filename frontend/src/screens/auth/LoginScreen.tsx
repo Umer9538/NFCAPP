@@ -25,6 +25,7 @@ import type { AuthScreenNavigationProp } from '@/navigation/types';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { loginSchema, type LoginFormData } from '@/utils/validationSchemas';
 import { containers, text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
@@ -43,6 +44,12 @@ export default function LoginScreen() {
   const navigation = useNavigation<AuthScreenNavigationProp>();
   const { login, logout, isLoading, error, clearError } = useAuth();
   const { toastConfig, hideToast, success, error: showError } = useToast();
+  const {
+    signInWithGoogle,
+    isLoading: googleLoading,
+    error: googleError,
+    isReady: googleReady,
+  } = useGoogleAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -148,6 +155,37 @@ export default function LoginScreen() {
       clearError();
     }
   }, [error]);
+
+  // Show Google error toast
+  useEffect(() => {
+    if (googleError) {
+      showError(googleError);
+    }
+  }, [googleError]);
+
+  /**
+   * Handle Google sign-in
+   */
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithGoogle();
+
+      if (result.success) {
+        if (result.requiresProfileSetup) {
+          // Navigate to profile setup if needed
+          success('Signed in with Google! Please complete your profile.');
+          // Profile setup navigation is handled by RootNavigator based on profileComplete flag
+        } else {
+          success('Signed in with Google!');
+        }
+        // Navigation is handled by RootNavigator based on auth state
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(result.error);
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Google sign-in failed. Please try again.');
+    }
+  };
 
   const checkBiometric = async () => {
     try {
@@ -344,11 +382,13 @@ export default function LoginScreen() {
               <Button
                 variant="outline"
                 fullWidth
-                onPress={() => showError('Google Sign-In coming soon')}
+                onPress={handleGoogleSignIn}
+                loading={googleLoading}
+                disabled={!googleReady || googleLoading || isLoading}
                 icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
                 style={styles.socialButton}
               >
-                Continue with Google
+                {googleLoading ? 'Signing in...' : 'Continue with Google'}
               </Button>
               <Button
                 variant="outline"

@@ -32,6 +32,7 @@ import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { checkEmailAvailability } from '@/api/auth';
 import * as WebBrowser from 'expo-web-browser';
 import { signupSchema, type SignupFormData, calculatePasswordStrength, type PasswordStrengthResult } from '@/utils/validationSchemas';
@@ -44,6 +45,12 @@ export default function SignupScreen() {
   const route = useRoute<AuthScreenRouteProp<'Signup'>>();
   const { signup, isLoading, error, clearError } = useAuth();
   const { toastConfig, hideToast, success, error: showError } = useToast();
+  const {
+    signInWithGoogle,
+    isLoading: googleLoading,
+    error: googleError,
+    isReady: googleReady,
+  } = useGoogleAuth();
 
   // Get account type from route params (defaults to 'individual')
   const accountType = route.params?.accountType || 'individual';
@@ -263,6 +270,36 @@ export default function SignupScreen() {
     }
   }, [error]);
 
+  // Show Google error toast
+  useEffect(() => {
+    if (googleError) {
+      showError(googleError);
+    }
+  }, [googleError]);
+
+  /**
+   * Handle Google sign-up
+   */
+  const handleGoogleSignUp = async () => {
+    try {
+      const result = await signInWithGoogle();
+
+      if (result.success) {
+        if (result.requiresProfileSetup) {
+          success('Signed up with Google! Please complete your profile.');
+          // Profile setup navigation is handled by RootNavigator based on profileComplete flag
+        } else {
+          success('Account created with Google!');
+        }
+        // Navigation is handled by RootNavigator based on auth state
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(result.error);
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Google sign-up failed. Please try again.');
+    }
+  };
+
   const onSubmit = async (data: SignupFormData) => {
     try {
       const response = await signup({
@@ -425,6 +462,37 @@ export default function SignupScreen() {
                   Change
                 </Text>
               </Pressable>
+            </View>
+
+            {/* Social Sign Up Buttons */}
+            <View style={styles.socialButtonsContainer}>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={handleGoogleSignUp}
+                loading={googleLoading}
+                disabled={!googleReady || googleLoading || isLoading}
+                icon={<Ionicons name="logo-google" size={20} color="#DB4437" />}
+                style={styles.socialButton}
+              >
+                {googleLoading ? 'Signing up...' : 'Continue with Google'}
+              </Button>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={() => showError('Apple Sign-In coming soon')}
+                icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
+                style={styles.socialButton}
+              >
+                Continue with Apple
+              </Button>
+            </View>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or sign up with email</Text>
+              <View style={styles.dividerLine} />
             </View>
 
             {/* Name Row */}
@@ -1005,6 +1073,28 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     color: PRIMARY[600],
+    fontWeight: '600',
+  },
+  socialButtonsContainer: {
+    gap: spacing[3],
+  },
+  socialButton: {
+    backgroundColor: SEMANTIC.background.default,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing[2],
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: SEMANTIC.border.default,
+  },
+  dividerText: {
+    marginHorizontal: spacing[3],
+    fontSize: 12,
+    color: SEMANTIC.text.tertiary,
     fontWeight: '600',
   },
 });

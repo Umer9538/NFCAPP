@@ -10,3 +10,6 @@ export {
   useBreakpoint,
   useIsTablet,
 } from './useResponsive';
+
+// Auth hooks
+export { useGoogleAuth } from './useGoogleAuth';

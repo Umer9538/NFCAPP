@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
-    "scheme": "medguard",
+    "scheme": "com.firstaidtag.app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.medguard.mobile",
+      "bundleIdentifier": "com.firstaidtag.app",
       "infoPlist": {
         "NFCReaderUsageDescription": "MedGuard uses NFC to read and write medical emergency information on NFC bracelets",
         "NSCameraUsageDescription": "This app uses the camera to scan QR codes for emergency profile access",
@@ -33,7 +33,7 @@
       }
     },
     "android": {
-      "package": "com.medguard.mobile",
+      "package": "com.firstaidtag.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -108,8 +108,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3c5f6c8b-b2d4-479b-97fe-433adc916202"
+        "projectId": "077b32ac-235f-47a1-8cc2-ac35d693ce88"
+      },
+      "googleOAuth": {
+        "webClientId": "522012003528-41fip6qmov18st5idr1hg2cb1bptmqk5.apps.googleusercontent.com",
+        "iosClientId": "522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf.apps.googleusercontent.com",
+        "androidClientId": "522012003528-uv62nf03jhg8qs7mbt8v68nram8qjn8i.apps.googleusercontent.com"
       }
-    }
+    },
+    "owner": "exporohaan"
   }
 }

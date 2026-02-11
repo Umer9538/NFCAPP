@@ -34,7 +34,7 @@ function getApiBaseUrl(): string {
   // Default: Use deployed Vercel backend (works for both dev and production)
   // This ensures the app always connects to the real backend with real data
   // Note: Do NOT include /api here - endpoints already have /api prefix
-  const VERCEL_API_URL = 'https://nfc-medical-profile-platform.vercel.app';
+  const VERCEL_API_URL = 'https://firstaidtag.com';
 
   // Uncomment below to use local backend during development:
   // if (__DEV__) {
@@ -193,11 +193,11 @@ export const NOTIFICATION_TYPES = {
  * External Links
  */
 export const EXTERNAL_LINKS = {
-  PRIVACY_POLICY: 'https://medid.com/privacy',
-  TERMS_OF_SERVICE: 'https://medid.com/terms',
-  HELP_CENTER: 'https://help.medid.com',
-  CONTACT_SUPPORT: 'mailto:support@medid.com',
-  WEBSITE: 'https://medid.com',
+  PRIVACY_POLICY: 'https://firstaidtag.com/privacy',
+  TERMS_OF_SERVICE: 'https://firstaidtag.com/terms',
+  HELP_CENTER: 'https://firstaidtag.com/help',
+  CONTACT_SUPPORT: 'mailto:support@firstaidtag.com',
+  WEBSITE: 'https://firstaidtag.com',
 } as const;
 
 /**

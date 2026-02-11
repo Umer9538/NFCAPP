@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "ade8812c-4853-45d8-9072-a90b21b3e8c0"
+      }
+    },
+    "android": {
+      "package": "com.exporohaan.nfcapp"
+    }
+  }
+}
