@@ -39,10 +39,19 @@ export interface GoogleOAuthData {
   accessToken?: string;
 }
 
+// Apple OAuth data passed to signup screen
+export interface AppleOAuthData {
+  email: string;
+  fullName: string;
+  appleId: string;
+  emailVerified: boolean;
+  identityToken: string;
+}
+
 export type AuthStackParamList = {
   Login: undefined;
   AccountType: undefined;
-  Signup: { accountType?: AccountType; googleOAuth?: GoogleOAuthData };
+  Signup: { accountType?: AccountType; googleOAuth?: GoogleOAuthData; appleOAuth?: AppleOAuthData };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
   VerifyEmail: { email: string; userId?: string };

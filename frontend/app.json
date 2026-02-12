@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.firstaidtag.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NFCReaderUsageDescription": "MedGuard uses NFC to read and write medical emergency information on NFC bracelets",
         "NSCameraUsageDescription": "This app uses the camera to scan QR codes for emergency profile access",
@@ -100,7 +101,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf"
         }
-      ]
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

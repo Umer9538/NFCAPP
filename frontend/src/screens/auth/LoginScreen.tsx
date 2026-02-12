@@ -26,6 +26,7 @@ import type { AuthScreenNavigationProp } from '@/navigation/types';
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useAppleAuth } from '@/hooks/useAppleAuth';
 import { loginSchema, type LoginFormData } from '@/utils/validationSchemas';
 import { containers, text } from '@/constants/styles';
 import { PRIMARY, SEMANTIC } from '@/constants/colors';
@@ -50,6 +51,13 @@ export default function LoginScreen() {
     error: googleError,
     isReady: googleReady,
   } = useGoogleAuth();
+
+  const {
+    signInWithApple,
+    isLoading: appleLoading,
+    error: appleError,
+    isAvailable: appleAvailable,
+  } = useAppleAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -163,6 +171,13 @@ export default function LoginScreen() {
     }
   }, [googleError]);
 
+  // Show Apple error toast
+  useEffect(() => {
+    if (appleError) {
+      showError(appleError);
+    }
+  }, [appleError]);
+
   /**
    * Handle Google sign-in
    */
@@ -193,6 +208,39 @@ export default function LoginScreen() {
       }
     } catch (err: any) {
       showError(err?.message || 'Google sign-in failed. Please try again.');
+    }
+  };
+
+  /**
+   * Handle Apple sign-in
+   */
+  const handleAppleSignIn = async () => {
+    try {
+      const result = await signInWithApple();
+
+      if (result.success) {
+        // New user - needs to complete signup
+        if (result.needsSignup && result.appleData) {
+          success('Please complete your registration');
+          // Navigate to signup with Apple data pre-filled
+          navigation.navigate('Signup', {
+            appleOAuth: result.appleData,
+          });
+          return;
+        }
+
+        // Existing user - logged in
+        if (result.requiresProfileSetup) {
+          success('Signed in with Apple! Please complete your profile.');
+        } else {
+          success('Signed in with Apple!');
+        }
+        // Navigation is handled by RootNavigator based on auth state
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(result.error);
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Apple sign-in failed. Please try again.');
     }
   };
 
@@ -399,15 +447,19 @@ export default function LoginScreen() {
               >
                 {googleLoading ? 'Signing in...' : 'Continue with Google'}
               </Button>
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={() => showError('Apple Sign-In coming soon')}
-                icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
-                style={styles.socialButton}
-              >
-                Continue with Apple
-              </Button>
+              {appleAvailable && (
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={handleAppleSignIn}
+                  loading={appleLoading}
+                  disabled={appleLoading || isLoading}
+                  icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
+                  style={styles.socialButton}
+                >
+                  {appleLoading ? 'Signing in...' : 'Continue with Apple'}
+                </Button>
+              )}
             </View>
 
             {/* Divider - or sign in with email */}

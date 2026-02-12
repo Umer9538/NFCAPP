@@ -33,6 +33,7 @@ import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useAppleAuth } from '@/hooks/useAppleAuth';
 import { checkEmailAvailability } from '@/api/auth';
 import * as WebBrowser from 'expo-web-browser';
 import { signupSchema, type SignupFormData, calculatePasswordStrength, type PasswordStrengthResult } from '@/utils/validationSchemas';
@@ -53,10 +54,21 @@ export default function SignupScreen() {
     isReady: googleReady,
   } = useGoogleAuth();
 
-  // Get account type and Google OAuth data from route params
+  const {
+    signInWithApple,
+    completeAppleSignup,
+    isLoading: appleLoading,
+    error: appleError,
+    isAvailable: appleAvailable,
+  } = useAppleAuth();
+
+  // Get account type and OAuth data from route params
   const accountType = route.params?.accountType || 'individual';
   const googleOAuth = route.params?.googleOAuth;
+  const appleOAuth = route.params?.appleOAuth;
   const isGoogleSignup = !!googleOAuth;
+  const isAppleSignup = !!appleOAuth;
+  const isOAuthSignup = isGoogleSignup || isAppleSignup;
   const dashboardConfig = getDashboardConfig(accountType);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -147,14 +159,18 @@ export default function SignupScreen() {
     formState: { errors },
     watch,
     setValue,
+  // Parse Apple fullName into first/last name
+  const appleFirstName = appleOAuth?.fullName?.split(' ')[0] || '';
+  const appleLastName = appleOAuth?.fullName?.split(' ').slice(1).join(' ') || '';
+
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      firstName: googleOAuth?.firstName || '',
-      lastName: googleOAuth?.lastName || '',
-      email: googleOAuth?.email || '',
-      password: isGoogleSignup ? 'GoogleOAuth123!' : '', // Placeholder for Google signup (not used)
-      confirmPassword: isGoogleSignup ? 'GoogleOAuth123!' : '', // Placeholder for Google signup (not used)
+      firstName: googleOAuth?.firstName || appleFirstName || '',
+      lastName: googleOAuth?.lastName || appleLastName || '',
+      email: googleOAuth?.email || appleOAuth?.email || '',
+      password: isOAuthSignup ? 'OAuthPlaceholder123!' : '', // Placeholder for OAuth signup (not used)
+      confirmPassword: isOAuthSignup ? 'OAuthPlaceholder123!' : '', // Placeholder for OAuth signup (not used)
       phoneNumber: '',
       acceptTerms: false,
     },
@@ -284,6 +300,13 @@ export default function SignupScreen() {
     }
   }, [googleError]);
 
+  // Show Apple error toast
+  useEffect(() => {
+    if (appleError) {
+      showError(appleError);
+    }
+  }, [appleError]);
+
   /**
    * Handle Google sign-up button click
    */
@@ -316,6 +339,42 @@ export default function SignupScreen() {
       }
     } catch (err: any) {
       showError(err?.message || 'Google sign-up failed. Please try again.');
+    }
+  };
+
+  /**
+   * Handle Apple sign-up button click
+   */
+  const handleAppleSignUp = async () => {
+    try {
+      const result = await signInWithApple();
+
+      if (result.success) {
+        // New user - stay on this page with pre-filled data
+        if (result.needsSignup && result.appleData) {
+          // Re-navigate to this screen with Apple data
+          navigation.setParams({ appleOAuth: result.appleData });
+          // Pre-fill the form fields
+          const nameParts = (result.appleData.fullName || '').split(' ');
+          setValue('firstName', nameParts[0] || '');
+          setValue('lastName', nameParts.slice(1).join(' ') || '');
+          setValue('email', result.appleData.email);
+          success('Please enter a username to complete your registration');
+          return;
+        }
+
+        // Existing user logged in
+        if (result.requiresProfileSetup) {
+          success('Signed in with Apple! Please complete your profile.');
+        } else {
+          success('Signed in with Apple!');
+        }
+        // Navigation is handled by RootNavigator based on auth state
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(result.error);
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Apple sign-up failed. Please try again.');
     }
   };
 
@@ -354,6 +413,54 @@ export default function SignupScreen() {
       }
     } catch (err: any) {
       showError(err?.message || 'Failed to complete signup');
+    }
+  };
+
+  /**
+   * Handle Apple signup completion (when user enters username)
+   */
+  const handleCompleteAppleSignup = async () => {
+    if (!appleOAuth) return;
+
+    if (!username || username.trim().length < 3) {
+      showError('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      showError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    try {
+      const result = await completeAppleSignup({
+        fullName: appleOAuth.fullName || `${appleFirstName} ${appleLastName}`.trim(),
+        username: username.trim(),
+        email: appleOAuth.email,
+        appleId: appleOAuth.appleId,
+        identityToken: appleOAuth.identityToken,
+        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION',
+      });
+
+      if (result.success) {
+        success('Account created successfully!');
+        // Navigation is handled by RootNavigator based on auth state
+      } else {
+        showError(result.error || 'Failed to create account');
+      }
+    } catch (err: any) {
+      showError(err?.message || 'Failed to complete signup');
+    }
+  };
+
+  /**
+   * Handle OAuth signup completion (Google or Apple)
+   */
+  const handleCompleteOAuthSignup = () => {
+    if (isGoogleSignup) {
+      handleCompleteGoogleSignup();
+    } else if (isAppleSignup) {
+      handleCompleteAppleSignup();
     }
   };
 
@@ -521,20 +628,28 @@ export default function SignupScreen() {
               </Pressable>
             </View>
 
-            {/* Google OAuth Banner (when signing up with Google) */}
-            {isGoogleSignup && (
+            {/* OAuth Banner (when signing up with Google or Apple) */}
+            {isOAuthSignup && (
               <View style={[styles.googleBanner, { backgroundColor: `${dashboardConfig.themeColors.primary}10` }]}>
-                <Ionicons name="logo-google" size={24} color="#DB4437" />
+                <Ionicons
+                  name={isGoogleSignup ? "logo-google" : "logo-apple"}
+                  size={24}
+                  color={isGoogleSignup ? "#DB4437" : "#000000"}
+                />
                 <View style={styles.googleBannerText}>
-                  <Text style={styles.googleBannerTitle}>Signing up with Google</Text>
-                  <Text style={styles.googleBannerEmail}>{googleOAuth?.email}</Text>
+                  <Text style={styles.googleBannerTitle}>
+                    Signing up with {isGoogleSignup ? 'Google' : 'Apple'}
+                  </Text>
+                  <Text style={styles.googleBannerEmail}>
+                    {googleOAuth?.email || appleOAuth?.email}
+                  </Text>
                 </View>
                 <Ionicons name="checkmark-circle" size={24} color={STATUS.success} />
               </View>
             )}
 
-            {/* Social Sign Up Buttons - Only show when NOT in Google signup mode */}
-            {!isGoogleSignup && (
+            {/* Social Sign Up Buttons - Only show when NOT in OAuth signup mode */}
+            {!isOAuthSignup && (
               <>
                 <View style={styles.socialButtonsContainer}>
                   <Button
@@ -548,15 +663,19 @@ export default function SignupScreen() {
                   >
                     {googleLoading ? 'Signing up...' : 'Continue with Google'}
                   </Button>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onPress={() => showError('Apple Sign-In coming soon')}
-                    icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
-                    style={styles.socialButton}
-                  >
-                    Continue with Apple
-                  </Button>
+                  {appleAvailable && (
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      onPress={handleAppleSignUp}
+                      loading={appleLoading}
+                      disabled={appleLoading || isLoading}
+                      icon={<Ionicons name="logo-apple" size={20} color="#000000" />}
+                      style={styles.socialButton}
+                    >
+                      {appleLoading ? 'Signing up...' : 'Continue with Apple'}
+                    </Button>
+                  )}
                 </View>
 
                 {/* Divider */}
@@ -889,7 +1008,7 @@ export default function SignupScreen() {
             {/* Signup Button */}
             <Button
               fullWidth
-              onPress={isGoogleSignup ? handleCompleteGoogleSignup : handleSubmit(onSubmit)}
+              onPress={isOAuthSignup ? handleCompleteOAuthSignup : handleSubmit(onSubmit)}
               loading={isLoading || googleLoading}
               disabled={isGoogleSignup ? (!username || username.length < 3) : false}
               style={styles.signupButton}
