@@ -46,7 +46,8 @@ export interface CompleteSignupData {
   googleId: string;
   idToken: string;
   accessToken?: string;
-  accountType?: 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION';
+  accountType?: 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION' | 'FAMILY';
+  familyRelationship?: string;
 }
 
 /**

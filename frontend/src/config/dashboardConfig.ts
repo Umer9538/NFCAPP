@@ -11,11 +11,32 @@ import {
   GraduationCap,
   Building2,
   HardHat,
+  Heart,
   LucideIcon,
 } from 'lucide-react-native';
 
 // Account Types
-export type AccountType = 'individual' | 'corporate' | 'construction' | 'education';
+export type AccountType = 'individual' | 'corporate' | 'construction' | 'education' | 'family';
+
+// Family Relationship Types
+export type FamilyRelationship = 'parent' | 'spouse' | 'child' | 'sibling' | 'grandparent' | 'other';
+
+// Family Relationship Options for UI
+export interface FamilyRelationshipOption {
+  value: FamilyRelationship;
+  label: string;
+  description: string;
+  emoji: string;
+}
+
+export const FAMILY_RELATIONSHIPS: FamilyRelationshipOption[] = [
+  { value: 'parent', label: 'My Parent', description: 'Mother, Father, or Guardian', emoji: '👨‍👩‍👧' },
+  { value: 'spouse', label: 'My Spouse', description: 'Husband, Wife, or Partner', emoji: '💑' },
+  { value: 'child', label: 'My Child', description: 'Son, Daughter, or Dependent', emoji: '👶' },
+  { value: 'sibling', label: 'My Sibling', description: 'Brother or Sister', emoji: '👫' },
+  { value: 'grandparent', label: 'My Grandparent', description: 'Grandmother or Grandfather', emoji: '👴' },
+  { value: 'other', label: 'Other Relative', description: 'Aunt, Uncle, Cousin, etc.', emoji: '👪' },
+];
 
 // User Role Type
 // - admin: Full access to organization
@@ -397,12 +418,94 @@ const educationConfig: DashboardConfig = {
   },
 };
 
+// Family Account Configuration
+const familyConfig: DashboardConfig = {
+  accountType: 'family',
+  displayName: 'Family Account',
+  description: 'Manage medical profiles for your loved ones',
+  terminology: {
+    user: 'Family Member',
+    users: 'Family Members',
+    profile: 'Medical Profile',
+    medicalInfo: 'Medical Information',
+    dashboard: 'Family Dashboard',
+    emergency: 'Emergency Profile',
+  },
+  navigationItems: [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      route: 'Home',
+    },
+    {
+      id: 'profile',
+      label: 'Medical Profile',
+      icon: User,
+      route: 'Profile',
+    },
+    {
+      id: 'bracelet',
+      label: 'NFC Bracelet',
+      icon: Activity,
+      route: 'Bracelet',
+    },
+    {
+      id: 'familyMembers',
+      label: 'Family Members',
+      icon: Heart,
+      route: 'FamilyMembers',
+    },
+    {
+      id: 'subscription',
+      label: 'Subscription',
+      icon: CreditCard,
+      route: 'Subscription',
+    },
+    {
+      id: 'auditLogs',
+      label: 'Activity Log',
+      icon: FileText,
+      route: 'AuditLogs',
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings,
+      route: 'Settings',
+    },
+  ],
+  features: {
+    showSubscription: true,
+    showBracelet: true,
+    showAuditLogs: true,
+    showEmployees: false,
+    showWorkers: false,
+    showStudents: false,
+    showMedicalInfo: true,
+    showIncidentReports: false,
+    showAnalytics: false,
+    showBulkManagement: false,
+    showExportReports: false,
+  },
+  themeColors: {
+    primary: '#DB2777',      // Pink-600
+    primaryLight: '#FCE7F3', // Pink-100
+    primaryDark: '#9D174D',  // Pink-800
+    accent: '#F472B6',       // Pink-400
+    background: '#FDF2F8',   // Pink-50
+    cardBackground: '#FFFFFF',
+    gradient: ['#DB2777', '#BE185D'],
+  },
+};
+
 // Configuration Map
 const dashboardConfigs: Record<AccountType, DashboardConfig> = {
   individual: individualConfig,
   corporate: corporateConfig,
   construction: constructionConfig,
   education: educationConfig,
+  family: familyConfig,
 };
 
 /**
@@ -420,7 +523,16 @@ export function getDashboardConfig(accountType: AccountType): DashboardConfig {
  * @returns True if the account is an organization (not individual)
  */
 export function isOrganizationAccount(accountType: AccountType): boolean {
-  return accountType !== 'individual';
+  return accountType !== 'individual' && accountType !== 'family';
+}
+
+/**
+ * Check if the account type is a family account
+ * @param accountType - The type of account
+ * @returns True if the account is a family account
+ */
+export function isFamilyAccount(accountType: AccountType): boolean {
+  return accountType === 'family';
 }
 
 /**
@@ -428,7 +540,7 @@ export function isOrganizationAccount(accountType: AccountType): boolean {
  * @returns Array of all account types
  */
 export function getAccountTypes(): AccountType[] {
-  return ['individual', 'corporate', 'construction', 'education'];
+  return ['individual', 'family', 'corporate', 'construction', 'education'];
 }
 
 /**
@@ -494,6 +606,12 @@ export function canAccessRoute(
     return individualRoutes.includes(routeName as IndividualRoute);
   }
 
+  // Family users can access family routes
+  if (accountType === 'family') {
+    const familyRoutes = ['Home', 'Profile', 'Bracelet', 'Settings', 'Subscription', 'AuditLogs', 'Medical', 'FamilyMembers'];
+    return familyRoutes.includes(routeName);
+  }
+
   // Organization users
   const isUserAdmin = isAdmin(role);
 
@@ -521,6 +639,11 @@ export function getNavigationItems(
 
   // Individual users get all their navigation items
   if (accountType === 'individual') {
+    return config.navigationItems;
+  }
+
+  // Family users get all their navigation items
+  if (accountType === 'family') {
     return config.navigationItems;
   }
 
@@ -582,6 +705,7 @@ export function isFeatureEnabled(
 export default {
   getDashboardConfig,
   isOrganizationAccount,
+  isFamilyAccount,
   getAccountTypes,
   getNavigationItems,
   getTerminology,
@@ -594,4 +718,5 @@ export default {
   isParent,
   hasManagementAccess,
   canAccessRoute,
+  FAMILY_RELATIONSHIPS,
 };

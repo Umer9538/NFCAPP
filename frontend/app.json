@@ -27,8 +27,12 @@
       },
       "entitlements": {
         "aps-environment": "development",
-        "com.apple.developer.nfc.readersession.formats": ["NDEF", "TAG"]
-      }
+        "com.apple.developer.nfc.readersession.formats": [
+          "NDEF",
+          "TAG"
+        ]
+      },
+      "appleTeamId": "7Y2LFA4P3D"
     },
     "android": {
       "package": "com.firstaidtag.app",
@@ -62,7 +66,9 @@
         "react-native-nfc-manager",
         {
           "nfcPermission": "MedGuard needs NFC access to read and link your medical bracelet",
-          "selectIdentifiers": ["D2760000850101"],
+          "selectIdentifiers": [
+            "D2760000850101"
+          ],
           "systemCodes": []
         }
       ],

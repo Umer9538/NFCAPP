@@ -10,6 +10,7 @@ import {
   Building2,
   HardHat,
   GraduationCap,
+  Heart,
   LucideIcon,
 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -44,6 +45,7 @@ const accountIcons: Record<AccountType, LucideIcon> = {
   corporate: Building2,
   construction: HardHat,
   education: GraduationCap,
+  family: Heart,
 };
 
 // Labels for account types
@@ -52,6 +54,7 @@ const accountLabels: Record<AccountType, string> = {
   corporate: 'Corporate',
   construction: 'Construction',
   education: 'Education',
+  family: 'Family',
 };
 
 // Size configurations

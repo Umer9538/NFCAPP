@@ -4,6 +4,8 @@
   <dict>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -27,8 +29,20 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>medguard</string>
-          <string>com.medguard.mobile</string>
+          <string>com.firstaidtag.app</string>
+          <string>com.firstaidtag.app</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+medguard-mobile</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf</string>
         </array>
       </dict>
     </array>
@@ -51,6 +65,12 @@
     <string>Allow MedGuard to access your camera to scan QR codes</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow MedGuard to use Face ID for secure authentication</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your location</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your location</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your location</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryAddUsageDescription</key>

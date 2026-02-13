@@ -33,7 +33,8 @@ export interface CompleteAppleSignupData {
   email: string;
   appleId: string;
   identityToken: string;
-  accountType?: 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION';
+  accountType?: 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION' | 'FAMILY';
+  familyRelationship?: string;
 }
 
 /**

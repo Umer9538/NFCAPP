@@ -129,6 +129,7 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
     password: data.password,
     confirmPassword: data.password,
     accountType: data.accountType || 'individual',
+    familyRelationship: data.familyRelationship,
     organizationId: data.organizationId,
   };
 
@@ -151,6 +152,7 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
       emailVerified: false,
       twoFactorEnabled: false,
       accountType: data.accountType || 'individual',
+      familyRelationship: data.familyRelationship,
       organizationId: data.organizationId,
       role: undefined,
       createdAt: new Date().toISOString(),

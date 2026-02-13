@@ -8,7 +8,7 @@ import type { NavigatorScreenParams , CompositeNavigationProp, RouteProp } from 
 /**
  * Auth Stack Param List
  */
-import type { AccountType } from '@/config/dashboardConfig';
+import type { AccountType, FamilyRelationship } from '@/config/dashboardConfig';
 
 /**
  * Navigation prop types for screens
@@ -51,12 +51,12 @@ export interface AppleOAuthData {
 export type AuthStackParamList = {
   Login: undefined;
   AccountType: undefined;
-  Signup: { accountType?: AccountType; googleOAuth?: GoogleOAuthData; appleOAuth?: AppleOAuthData };
+  Signup: { accountType?: AccountType; familyRelationship?: FamilyRelationship; googleOAuth?: GoogleOAuthData; appleOAuth?: AppleOAuthData };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
   VerifyEmail: { email: string; userId?: string };
   TwoFactorAuth: { email: string; tempToken: string };
-  ProfileSetup: { email: string; userId?: string; accountType?: AccountType };
+  ProfileSetup: { email: string; userId?: string; accountType?: AccountType; familyRelationship?: FamilyRelationship };
 };
 
 /**

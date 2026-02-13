@@ -3,7 +3,7 @@
  * Matching Next.js backend schema
  */
 
-import type { AccountType } from '@/config/dashboardConfig';
+import type { AccountType, FamilyRelationship } from '@/config/dashboardConfig';
 
 /**
  * User role within an organization
@@ -28,6 +28,7 @@ export interface User {
   twoFactorEnabled: boolean;
   profileComplete?: boolean;
   accountType: AccountType;
+  familyRelationship?: FamilyRelationship;
   organizationId?: string;
   role?: UserRole;
   suspended?: boolean;
@@ -64,6 +65,7 @@ export interface SignupRequest {
   lastName: string;
   phoneNumber?: string;
   accountType?: AccountType;
+  familyRelationship?: FamilyRelationship;
   organizationId?: string;
 }
 

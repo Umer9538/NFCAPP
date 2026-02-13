@@ -26,9 +26,10 @@ import {
   Building2,
   HardHat,
   GraduationCap,
+  Heart,
 } from 'lucide-react-native';
 import type { AuthScreenNavigationProp, AuthScreenRouteProp } from '@/navigation/types';
-import { getDashboardConfig, type AccountType } from '@/config/dashboardConfig';
+import { getDashboardConfig, FAMILY_RELATIONSHIPS, type AccountType, type FamilyRelationship } from '@/config/dashboardConfig';
 
 import { Button, Input, Card, Toast, useToast, LoadingSpinner } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,14 +63,21 @@ export default function SignupScreen() {
     isAvailable: appleAvailable,
   } = useAppleAuth();
 
-  // Get account type and OAuth data from route params
+  // Get account type, family relationship, and OAuth data from route params
   const accountType = route.params?.accountType || 'individual';
+  const familyRelationship = route.params?.familyRelationship;
   const googleOAuth = route.params?.googleOAuth;
   const appleOAuth = route.params?.appleOAuth;
   const isGoogleSignup = !!googleOAuth;
   const isAppleSignup = !!appleOAuth;
   const isOAuthSignup = isGoogleSignup || isAppleSignup;
+  const isFamilyAccount = accountType === 'family';
   const dashboardConfig = getDashboardConfig(accountType);
+
+  // Get the relationship label for display
+  const relationshipLabel = familyRelationship
+    ? FAMILY_RELATIONSHIPS.find(r => r.value === familyRelationship)?.label
+    : null;
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -153,16 +161,16 @@ export default function SignupScreen() {
     animationSequence.start();
   }, []);
 
+  // Parse Apple fullName into first/last name
+  const appleFirstName = appleOAuth?.fullName?.split(' ')[0] || '';
+  const appleLastName = appleOAuth?.fullName?.split(' ').slice(1).join(' ') || '';
+
   const {
     control,
     handleSubmit,
     formState: { errors },
     watch,
     setValue,
-  // Parse Apple fullName into first/last name
-  const appleFirstName = appleOAuth?.fullName?.split(' ')[0] || '';
-  const appleLastName = appleOAuth?.fullName?.split(' ').slice(1).join(' ') || '';
-
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -402,7 +410,8 @@ export default function SignupScreen() {
         googleId: googleOAuth.googleId,
         idToken: googleOAuth.idToken,
         accessToken: googleOAuth.accessToken,
-        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION',
+        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION' | 'FAMILY',
+        familyRelationship: isFamilyAccount ? familyRelationship : undefined,
       });
 
       if (result.success) {
@@ -439,7 +448,8 @@ export default function SignupScreen() {
         email: appleOAuth.email,
         appleId: appleOAuth.appleId,
         identityToken: appleOAuth.identityToken,
-        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION',
+        accountType: accountType.toUpperCase() as 'INDIVIDUAL' | 'CORPORATE' | 'CONSTRUCTION' | 'EDUCATION' | 'FAMILY',
+        familyRelationship: isFamilyAccount ? familyRelationship : undefined,
       });
 
       if (result.success) {
@@ -473,6 +483,7 @@ export default function SignupScreen() {
         lastName: data.lastName,
         phoneNumber: data.phoneNumber,
         accountType: accountType,
+        familyRelationship: isFamilyAccount ? familyRelationship : undefined,
       });
 
       success('Account created! Please verify your email.');
@@ -550,6 +561,8 @@ export default function SignupScreen() {
         return <HardHat {...iconProps} />;
       case 'education':
         return <GraduationCap {...iconProps} />;
+      case 'family':
+        return <Heart {...iconProps} />;
       default:
         return <User {...iconProps} />;
     }
@@ -618,6 +631,9 @@ export default function SignupScreen() {
                   <Text style={styles.accountTypeLabel}>Account Type</Text>
                   <Text style={[styles.accountTypeName, { color: dashboardConfig.themeColors.primary }]}>
                     {dashboardConfig.displayName}
+                    {isFamilyAccount && relationshipLabel && (
+                      <Text style={styles.relationshipBadge}> • {relationshipLabel}</Text>
+                    )}
                   </Text>
                 </View>
               </View>
@@ -1114,6 +1130,10 @@ const styles = StyleSheet.create({
   accountTypeName: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  relationshipBadge: {
+    fontWeight: '400',
+    fontSize: 13,
   },
   changeButton: {
     paddingHorizontal: spacing[3],
