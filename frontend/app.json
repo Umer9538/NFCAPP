@@ -36,6 +36,7 @@
     },
     "android": {
       "package": "com.firstaidtag.app",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -108,7 +109,15 @@
           "iosUrlScheme": "com.googleusercontent.apps.522012003528-424bqdvhplqo1e0ie7o95l34pe4tr2hf"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow MedGuard to access the microphone for voice input.",
+          "speechRecognitionPermission": "Allow MedGuard to use speech recognition to convert your voice to text.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

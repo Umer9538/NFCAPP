@@ -34,7 +34,7 @@ function getApiBaseUrl(): string {
   // Default: Use deployed Vercel backend (works for both dev and production)
   // This ensures the app always connects to the real backend with real data
   // Note: Do NOT include /api here - endpoints already have /api prefix
-  const VERCEL_API_URL = 'https://firstaidtag.com';
+  const VERCEL_API_URL = 'https://firstaidtag.ca';
 
   // Uncomment below to use local backend during development:
   // if (__DEV__) {
@@ -102,7 +102,7 @@ export const API_CONFIG = {
  * App Information
  */
 export const APP_INFO = {
-  NAME: 'MedID',
+  NAME: 'MedGuard',
   VERSION: Application.nativeApplicationVersion || '1.0.0',
   BUILD_NUMBER: Application.nativeBuildVersion || '1',
   BUNDLE_ID: Application.applicationId || 'com.medid.app',
@@ -193,11 +193,11 @@ export const NOTIFICATION_TYPES = {
  * External Links
  */
 export const EXTERNAL_LINKS = {
-  PRIVACY_POLICY: 'https://firstaidtag.com/privacy',
-  TERMS_OF_SERVICE: 'https://firstaidtag.com/terms',
-  HELP_CENTER: 'https://firstaidtag.com/help',
-  CONTACT_SUPPORT: 'mailto:support@firstaidtag.com',
-  WEBSITE: 'https://firstaidtag.com',
+  PRIVACY_POLICY: 'https://firstaidtag.ca/privacy',
+  TERMS_OF_SERVICE: 'https://firstaidtag.ca/terms',
+  HELP_CENTER: 'https://firstaidtag.ca/help',
+  CONTACT_SUPPORT: 'mailto:support@firstaidtag.ca',
+  WEBSITE: 'https://firstaidtag.ca',
 } as const;
 
 /**

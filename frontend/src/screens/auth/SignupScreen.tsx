@@ -1101,17 +1101,19 @@ const styles = StyleSheet.create({
   accountTypeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: spacing[3],
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: spacing[2],
+    gap: spacing[2],
   },
   accountTypeCardLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
+    minWidth: 0,
   },
   accountTypeIconContainer: {
     width: 40,
@@ -1121,7 +1123,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   accountTypeInfo: {
+    flex: 1,
     gap: 2,
+    minWidth: 0,
   },
   accountTypeLabel: {
     fontSize: 12,
@@ -1136,7 +1140,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   changeButton: {
-    paddingHorizontal: spacing[3],
+    flexShrink: 0,
+    paddingHorizontal: spacing[2],
     paddingVertical: spacing[2],
   },
   changeButtonText: {

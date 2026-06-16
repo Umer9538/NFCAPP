@@ -122,7 +122,9 @@ export default function AppSplashScreen({ onReady }: SplashScreenProps) {
         </Animated.View>
 
         {/* App Name */}
-        <Text style={styles.appName}>MedID</Text>
+        <Text style={styles.appName} allowFontScaling={false} numberOfLines={1}>
+          MedGuard
+        </Text>
 
         {/* Tagline */}
         <Animated.Text
@@ -132,6 +134,8 @@ export default function AppSplashScreen({ onReady }: SplashScreenProps) {
               opacity: taglineFade,
             },
           ]}
+          allowFontScaling={false}
+          numberOfLines={1}
         >
           Your Life. One Tap Away.
         </Animated.Text>
@@ -148,11 +152,15 @@ export default function AppSplashScreen({ onReady }: SplashScreenProps) {
       >
         <View style={styles.featureBadges}>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Medical Grade</Text>
+            <Text style={styles.badgeText} allowFontScaling={false} numberOfLines={1}>
+              Medical Grade
+            </Text>
           </View>
           <View style={styles.badgeDot} />
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>256-bit Encrypted</Text>
+            <Text style={styles.badgeText} allowFontScaling={false} numberOfLines={1}>
+              256-bit Encrypted
+            </Text>
           </View>
         </View>
       </Animated.View>
@@ -189,7 +197,6 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: '700',
     color: '#111827',
-    letterSpacing: -0.5,
     marginBottom: 8,
   },
   tagline: {

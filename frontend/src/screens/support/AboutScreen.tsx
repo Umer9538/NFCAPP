@@ -72,7 +72,7 @@ export default function AboutScreen() {
     {
       icon: <Globe size={20} color={GRAY[600]} />,
       title: 'Website',
-      onPress: () => openLink('https://firstaidtag.com'),
+      onPress: () => openLink('https://firstaidtag.ca'),
     },
     {
       icon: <FileText size={20} color={GRAY[600]} />,
@@ -87,7 +87,7 @@ export default function AboutScreen() {
     {
       icon: <Mail size={20} color={GRAY[600]} />,
       title: 'Contact Support',
-      onPress: () => openLink('mailto:support@firstaidtag.com'),
+      onPress: () => openLink('mailto:support@firstaidtag.ca'),
     },
     {
       icon: <Star size={20} color={GRAY[600]} />,

@@ -18,9 +18,6 @@ import { useNavigation } from '@react-navigation/native';
 import {
   Heart,
   User,
-  Building2,
-  HardHat,
-  GraduationCap,
   ArrowLeft,
   CheckCircle,
   LucideIcon,
@@ -61,30 +58,6 @@ const accountTypeOptions: AccountTypeOption[] = [
     icon: Heart,
     color: '#DB2777', // pink-600
     lightColor: '#FCE7F3', // pink-100
-  },
-  {
-    type: 'corporate',
-    title: 'Corporate',
-    description: 'Employee health records',
-    icon: Building2,
-    color: '#2563EB', // blue-600
-    lightColor: '#DBEAFE', // blue-100
-  },
-  {
-    type: 'construction',
-    title: 'Construction',
-    description: 'Worker safety compliance',
-    icon: HardHat,
-    color: '#EA580C', // orange-600
-    lightColor: '#FFEDD5', // orange-100
-  },
-  {
-    type: 'education',
-    title: 'Education',
-    description: 'Student health management',
-    icon: GraduationCap,
-    color: '#16A34A', // green-600
-    lightColor: '#DCFCE7', // green-100
   },
 ];
 

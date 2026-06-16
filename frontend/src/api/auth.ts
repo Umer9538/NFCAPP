@@ -126,6 +126,7 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
     fullName: `${data.firstName} ${data.lastName}`,
     username: sanitizedUsername,
     email: data.email,
+    phoneNumber: data.phoneNumber,
     password: data.password,
     confirmPassword: data.password,
     accountType: data.accountType || 'individual',
