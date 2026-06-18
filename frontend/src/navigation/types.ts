@@ -139,6 +139,13 @@ export type AppStackParamList = {
   // Notifications
   Notifications: undefined;
 
+  // Family & Safety
+  SafeZones: undefined;
+  FamilySafety: undefined;
+  FamilyMap: undefined;
+  FamilyMembers: undefined;
+  InviteCaregiver: undefined;
+
   // Account & Settings
   AccountSettings: undefined;
   EditProfile: undefined;

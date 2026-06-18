@@ -3,51 +3,104 @@
  * TypeScript types for dashboard data
  */
 
+export type StatChangeType = 'positive' | 'neutral' | 'negative';
+
+export interface ProfileStatusStat {
+  value: string;
+  percentage: number;
+  change: string;
+  changeType: StatChangeType;
+  missingFields?: string[];
+}
+
+export interface BraceletStatusStat {
+  value: 'Linked' | 'Not Linked' | string;
+  change: string;
+  changeType: StatChangeType;
+}
+
+export interface ProfileAccessStat {
+  value: string;
+  change: string;
+  changeType: StatChangeType;
+}
+
+export interface SubscriptionStatusStat {
+  value: string;
+  change: string;
+  changeType: StatChangeType;
+}
+
 export interface DashboardStats {
-  profileCompleteness: {
-    percentage: number;
-    missingFields: string[];
-  };
-  braceletStatus: {
-    isActive: boolean;
-    lastScan?: string;
-    tagId?: string;
-  };
-  recentAccesses: {
-    count: number;
-    lastAccess?: string;
-  };
-  subscription: {
-    isActive: boolean;
-    plan: string;
-    expiresAt?: string;
-  };
+  profileStatus: ProfileStatusStat;
+  braceletStatus: BraceletStatusStat;
+  profileAccess: ProfileAccessStat;
+  subscriptionStatus: SubscriptionStatusStat;
+}
+
+export type DoseCriticality = 'critical' | 'important' | 'routine' | 'as_needed';
+export type DoseStatus = 'pending' | 'taken' | 'missed' | 'skipped' | 'snoozed';
+
+export interface TodaysDose {
+  id: string;
+  medicationId: string;
+  medicationName: string;
+  dosage: string | null;
+  dosageUnit: string | null;
+  purpose: string | null;
+  criticality: DoseCriticality;
+  scheduledTime: string;
+  status: DoseStatus;
+  takenAt: string | null;
+  takenLateMinutes: number | null;
+  snoozedUntil: string | null;
+  snoozeCount: number;
+  snoozeEnabled: boolean;
+  snoozeDuration: number;
+}
+
+export interface MedicationSummary {
+  total: number;
+  taken: number;
+  pending: number;
+  missed: number;
+  snoozed: number;
+  skipped: number;
+}
+
+export interface MedicationWidgetData {
+  doses: TodaysDose[];
+  summary: MedicationSummary;
+  weeklyAdherence: number;
+  streak: { current: number; longest: number };
+  nextDose: TodaysDose | null;
 }
 
 export interface HealthReminder {
   id: string;
   title: string;
   description: string;
-  dueDate: string;
   priority: 'high' | 'medium' | 'low';
-  type: 'medication' | 'appointment' | 'checkup' | 'other';
   completed: boolean;
+  createdAt?: string;
+  dueDate?: string;
+  type?: 'medication' | 'appointment' | 'checkup' | 'other';
 }
 
 export interface RecentActivity {
   id: string;
   action: string;
-  description: string;
-  timestamp: string;
-  location?: string;
-  type: 'scan' | 'update' | 'access' | 'login' | 'other';
-  icon?: string;
+  type: string;
+  location: string;
+  time: string;
+  timestamp?: string;
+  description?: string;
 }
 
 export interface DashboardResponse {
   stats: DashboardStats;
   reminders: HealthReminder[];
-  recentActivities: RecentActivity[];
+  recentActivity: RecentActivity[];
 }
 
 export interface EmergencyContact {

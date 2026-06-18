@@ -1,6 +1,6 @@
 /**
  * Dashboard API
- * API endpoints for dashboard data - Connected to real backend
+ * Mirrors the web companion endpoints — same backend, same response shapes.
  */
 
 import { api } from './client';
@@ -8,74 +8,70 @@ import type {
   DashboardResponse,
   DashboardStats,
   HealthReminder,
+  MedicationWidgetData,
   RecentActivity,
 } from '@/types/dashboard';
 
-/**
- * Get dashboard overview data
- * Note: Backend doesn't have a single /dashboard endpoint,
- * so we fetch stats and return it as DashboardResponse
- */
 export async function getDashboardOverview(): Promise<DashboardResponse> {
-  // Use /api/dashboard/stats as the main dashboard endpoint
-  const response = await api.get<{ success: boolean; stats: DashboardStats }>('/api/dashboard/stats');
-  return {
-    stats: response.stats,
-    reminders: [],
-    recentActivity: [],
-  };
+  const [stats, reminders, recentActivity] = await Promise.all([
+    getDashboardStats(),
+    getHealthReminders().catch(() => []),
+    getRecentActivities(5).catch(() => []),
+  ]);
+  return { stats, reminders, recentActivity };
 }
 
-/**
- * Get dashboard statistics
- */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  return await api.get<DashboardStats>('/api/dashboard/stats');
+  const res = await api.get<{ success: boolean; stats: DashboardStats }>(
+    '/api/dashboard/stats',
+  );
+  return res.stats;
 }
 
-/**
- * Get health reminders
- */
+export async function getTodaysMedications(): Promise<MedicationWidgetData | null> {
+  const res = await api.get<{ success: boolean; data: MedicationWidgetData }>(
+    '/api/medications/today',
+  );
+  return res.data ?? null;
+}
+
 export async function getHealthReminders(): Promise<HealthReminder[]> {
-  const response = await api.get<{ success: boolean; reminders: HealthReminder[] }>('/api/health-reminders');
-  return response.reminders || [];
+  const res = await api.get<{ success: boolean; reminders: HealthReminder[] }>(
+    '/api/health-reminders',
+  );
+  return res.reminders ?? [];
 }
 
-/**
- * Get recent activities
- */
-export async function getRecentActivities(limit: number = 5): Promise<RecentActivity[]> {
-  const response = await api.get<{ success: boolean; activities: RecentActivity[] }>(`/api/activities?limit=${limit}`);
-  return response.activities || [];
+export async function getRecentActivities(limit = 5): Promise<RecentActivity[]> {
+  const res = await api.get<{ success: boolean; activities: RecentActivity[] }>(
+    `/api/activities?limit=${limit}`,
+  );
+  return res.activities ?? [];
 }
 
-/**
- * Complete a health reminder
- */
-export async function completeReminder(id: string): Promise<{ message: string }> {
-  return await api.put('/api/health-reminders', { id, completed: true });
+export async function completeReminder(id: string): Promise<void> {
+  await api.put('/api/health-reminders', { id, completed: true });
 }
 
-/**
- * Dismiss a health reminder
- */
-export async function dismissReminder(id: string): Promise<{ message: string }> {
-  return await api.put('/api/health-reminders', { id, completed: true });
-}
-
-/**
- * Snooze a health reminder (mark as incomplete to show again later)
- */
-export async function snoozeReminder(id: string, snoozeUntil: string): Promise<{ message: string }> {
-  return await api.put('/api/health-reminders', { id, completed: false });
+export async function doseAction(
+  medicationId: string,
+  doseId: string,
+  action: 'take' | 'skip' | 'snooze',
+  snoozeDuration?: number,
+): Promise<void> {
+  await api.post(`/api/medications/${medicationId}/dose`, {
+    doseId,
+    action,
+    ...(action === 'snooze' && snoozeDuration ? { snoozeDuration } : {}),
+  });
 }
 
 export const dashboardApi = {
   getDashboardOverview,
   getDashboardStats,
+  getTodaysMedications,
   getHealthReminders,
   getRecentActivities,
   completeReminder,
-  dismissReminder,
-  snoozeReminder,
+  doseAction,
 };

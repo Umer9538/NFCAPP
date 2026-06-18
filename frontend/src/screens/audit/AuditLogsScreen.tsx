@@ -1,10 +1,9 @@
 /**
- * Audit Logs Screen
- * Track all access to user's medical profile for security and compliance
- * Matches website implementation
+ * Audit Logs — mirrors the web's /dashboard/audit-logs page.
+ * GET /api/audit-logs?page=&pageSize=&type=&status=&startDate=&endDate=&search=
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,38 +11,44 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  RefreshControl,
-  FlatList,
-  Alert,
-  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
-import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  FileText,
+  Calendar,
+  AlertCircle,
+  MapPin,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Lock,
+} from 'lucide-react-native';
 
-import { Card, Badge, LoadingSpinner, Toast, useToast } from '@/components/ui';
+import { PRIMARY, GRAY } from '@/constants/colors';
 import { auditApi } from '@/api/audit';
-import type { AuditLog, AuditLogType, AuditLogStatus, AuditLogFilters } from '@/types/audit';
-import { PRIMARY, SEMANTIC, STATUS, MEDICAL_COLORS } from '@/constants/colors';
-import { spacing, typography } from '@/theme/theme';
+import type {
+  AuditLog,
+  AuditLogStatus,
+  AuditLogType,
+} from '@/types/audit';
 
-// Type filter options
+const PAGE_SIZE = 15;
+const PRESETS = ['Today', 'Last 7 Days', 'Last 30 Days'] as const;
+const LOCKED_PRESETS = ['Last 90 Days', 'Last 6 Months', 'Last Year'] as const;
+
 const TYPE_OPTIONS: { value: AuditLogType | 'all'; label: string }[] = [
   { value: 'all', label: 'All Types' },
   { value: 'login', label: 'Login' },
-  { value: 'logout', label: 'Logout' },
   { value: 'profile_access', label: 'Profile Access' },
-  { value: 'profile_update', label: 'Profile Update' },
+  { value: 'profile_update', label: 'Update' },
   { value: 'bracelet_scan', label: 'Bracelet Scan' },
   { value: 'qr_scan', label: 'QR Scan' },
-  { value: 'password_change', label: 'Password Change' },
-  { value: 'settings_change', label: 'Settings Change' },
-  { value: 'emergency_access', label: 'Emergency Access' },
+  { value: 'password_change', label: 'Password' },
+  { value: 'settings_change', label: 'Settings' },
+  { value: 'emergency_access', label: 'Emergency' },
 ];
-
-// Status filter options
 const STATUS_OPTIONS: { value: AuditLogStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All Status' },
   { value: 'success', label: 'Success' },
@@ -52,738 +57,638 @@ const STATUS_OPTIONS: { value: AuditLogStatus | 'all'; label: string }[] = [
 ];
 
 export default function AuditLogsScreen() {
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const { toastConfig, hideToast, success, error: showError } = useToast();
-
-  const [filters, setFilters] = useState<AuditLogFilters>({
-    type: 'all',
-    status: 'all',
-    search: '',
-  });
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
-  const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState<AuditLogType | 'all'>('all');
+  const [status, setStatus] = useState<AuditLogStatus | 'all'>('all');
+  const [preset, setPreset] = useState<(typeof PRESETS)[number] | null>(
+    'Last 30 Days',
+  );
 
-  // Fetch audit logs
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['auditLogs', page, filters],
-    queryFn: () => auditApi.getAuditLogs(page, 20, filters),
+  const { startDate, endDate } = useMemo(() => {
+    if (!preset) return { startDate: undefined, endDate: undefined };
+    const end = new Date();
+    const start = new Date();
+    if (preset === 'Today') start.setHours(0, 0, 0, 0);
+    else if (preset === 'Last 7 Days') start.setDate(end.getDate() - 7);
+    else if (preset === 'Last 30 Days') start.setDate(end.getDate() - 30);
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+  }, [preset]);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['auditLogs', page, type, status, search, startDate, endDate],
+    queryFn: () =>
+      auditApi.getAuditLogs(page, PAGE_SIZE, {
+        type,
+        status,
+        search: search.trim() || undefined,
+        startDate,
+        endDate,
+      }),
   });
-
-  const handleExport = async () => {
-    try {
-      const result = await auditApi.exportAuditLogs('csv', filters);
-      if (result.url) {
-        await Linking.openURL(result.url);
-        success('Your export is being prepared');
-      }
-    } catch (error) {
-      showError('We couldn\'t export your logs. Please try again.');
-    }
-  };
-
-  const handleSearch = useCallback((text: string) => {
-    setFilters(prev => ({ ...prev, search: text }));
-    setPage(1);
-  }, []);
-
-  const handleTypeFilter = (type: AuditLogType | 'all') => {
-    setFilters(prev => ({ ...prev, type }));
-    setShowTypeFilter(false);
-    setPage(1);
-  };
-
-  const handleStatusFilter = (status: AuditLogStatus | 'all') => {
-    setFilters(prev => ({ ...prev, status }));
-    setShowStatusFilter(false);
-    setPage(1);
-  };
-
-  const getActionIcon = (type: AuditLogType): { name: keyof typeof Ionicons.glyphMap; color: string; bg: string } => {
-    switch (type) {
-      case 'login':
-      case 'logout':
-        return { name: 'log-in', color: MEDICAL_COLORS.green.dark, bg: MEDICAL_COLORS.green.light };
-      case 'profile_access':
-        return { name: 'eye', color: MEDICAL_COLORS.blue.dark, bg: MEDICAL_COLORS.blue.light };
-      case 'profile_update':
-        return { name: 'create', color: MEDICAL_COLORS.purple.dark, bg: MEDICAL_COLORS.purple.light };
-      case 'bracelet_scan':
-      case 'qr_scan':
-        return { name: 'scan', color: PRIMARY[600], bg: PRIMARY[50] };
-      case 'password_change':
-        return { name: 'key', color: MEDICAL_COLORS.yellow.dark, bg: MEDICAL_COLORS.yellow.light };
-      case 'settings_change':
-        return { name: 'settings', color: SEMANTIC.text.secondary, bg: SEMANTIC.background.secondary };
-      case 'emergency_access':
-        return { name: 'alert-circle', color: STATUS.error.main, bg: STATUS.error.light };
-      default:
-        return { name: 'document-text', color: SEMANTIC.text.secondary, bg: SEMANTIC.background.secondary };
-    }
-  };
-
-  const getStatusBadge = (status: AuditLogStatus) => {
-    switch (status) {
-      case 'success':
-        return { variant: 'success' as const, label: 'success' };
-      case 'failure':
-        return { variant: 'error' as const, label: 'failed' };
-      case 'warning':
-        return { variant: 'warning' as const, label: 'warning' };
-      default:
-        return { variant: 'default' as const, label: status };
-    }
-  };
-
-  const formatLocation = (log: AuditLog): string => {
-    if (!log.location) return 'Unknown';
-    const { city, region, country } = log.location;
-    if (city && region && country) {
-      return `${city}, ${region}, ${country}`;
-    }
-    if (city && country) {
-      return `${city}, ${country}`;
-    }
-    return country || 'Unknown';
-  };
-
-  const formatDevice = (log: AuditLog): string => {
-    if (!log.device) return 'Unknown';
-    const { platform, browser, os } = log.device;
-    const parts = [platform, browser, os].filter(Boolean);
-    return parts.length > 0 ? parts.join(' on ') : 'Unknown';
-  };
-
-  const renderLogItem = ({ item: log }: { item: AuditLog }) => {
-    const icon = getActionIcon(log.type);
-    const statusBadge = getStatusBadge(log.status);
-
-    return (
-      <View style={styles.logItem}>
-        <View style={styles.logContent}>
-          <View style={styles.logHeader}>
-            <View style={[styles.logIcon, { backgroundColor: icon.bg }]}>
-              <Ionicons name={icon.name} size={20} color={icon.color} />
-            </View>
-            <View style={styles.logInfo}>
-              <Text style={styles.logAction}>{log.action}</Text>
-              <Text style={styles.logActor}>
-                {log.actor.type === 'self' ? 'Self' : log.actor.name}
-              </Text>
-              {log.description && (
-                <Text style={styles.logDescription}>{log.description}</Text>
-              )}
-            </View>
-            <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-          </View>
-
-          <View style={styles.logMeta}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color={SEMANTIC.text.tertiary} />
-              <Text style={styles.metaText}>
-                {format(new Date(log.timestamp), 'MM/dd/yyyy, h:mm:ss a')}
-              </Text>
-            </View>
-
-            <View style={styles.metaItem}>
-              <Ionicons name="location-outline" size={14} color={SEMANTIC.text.tertiary} />
-              <Text style={styles.metaText}>{formatLocation(log)}</Text>
-            </View>
-
-            {log.ipAddress && (
-              <Text style={styles.ipAddress}>{log.ipAddress}</Text>
-            )}
-
-            <Text style={styles.deviceText}>{formatDevice(log)}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
-          <View style={styles.appBar}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
-            </Pressable>
-            <Text style={styles.appBarTitle}>Access History</Text>
-            <View style={styles.backButton} />
-          </View>
-        </View>
-        <LoadingSpinner visible text="Loading audit logs..." />
-      </View>
-    );
-  }
-
-  const stats = data?.stats || {
-    totalAccesses: 0,
-    thisMonth: 0,
-    failedAttempts: 0,
-    uniqueLocations: 0,
+  const logs = data?.logs ?? [];
+  const stats = data?.stats;
+  const pagination = data?.pagination ?? {
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 0,
   };
 
   return (
-    <View style={styles.container}>
-      {/* App Bar */}
-      <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
-        <View style={styles.appBar}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={SEMANTIC.text.primary} />
-          </Pressable>
-          <Text style={styles.appBarTitle}>Access History</Text>
-          <View style={styles.backButton} />
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
-        }
-      >
-        {/* Header Info */}
-        <View style={styles.headerInfo}>
-          <Text style={styles.title}>Audit Logs</Text>
-          <Text style={styles.subtitle}>
-            Track all access to your medical profile for security and compliance.
-          </Text>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statCardWrapper}>
-            <View style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statLabel}>Total Accesses</Text>
-                <View style={[styles.statIcon, { backgroundColor: '#EEF2FF' }]}>
-                  <Ionicons name="document-text" size={20} color="#6366F1" />
-                </View>
-              </View>
-              <Text style={styles.statValue}>{stats.totalAccesses}</Text>
-            </View>
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Audit Logs</Text>
+            <Text style={styles.headerSub}>
+              Track all access to your medical profile for security and
+              compliance.
+            </Text>
           </View>
-
-          <View style={styles.statCardWrapper}>
-            <View style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statLabel}>This Month</Text>
-                <View style={[styles.statIcon, { backgroundColor: '#FEE2E2' }]}>
-                  <Ionicons name="calendar" size={20} color="#DC2626" />
-                </View>
-              </View>
-              <Text style={styles.statValue}>{stats.thisMonth}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statCardWrapper}>
-            <View style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statLabel}>Failed Attempts</Text>
-                <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
-                  <Ionicons name="alert-circle" size={20} color="#D97706" />
-                </View>
-              </View>
-              <Text style={styles.statValue}>{stats.failedAttempts}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statCardWrapper}>
-            <View style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statLabel}>Locations</Text>
-                <View style={[styles.statIcon, { backgroundColor: '#F3E8FF' }]}>
-                  <Ionicons name="location" size={20} color="#9333EA" />
-                </View>
-              </View>
-              <Text style={styles.statValue}>{stats.uniqueLocations}</Text>
-            </View>
+          <View style={styles.retentionBadge}>
+            <Lock size={11} color="#a16207" />
+            <Text style={styles.retentionText}>7 days retention</Text>
           </View>
         </View>
 
-        {/* Search and Filters */}
-        <View style={styles.filtersSection}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={SEMANTIC.text.tertiary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search logs..."
-              placeholderTextColor={SEMANTIC.text.tertiary}
-              value={filters.search}
-              onChangeText={handleSearch}
+        <View style={styles.statRow}>
+          <StatTile
+            value={stats?.totalAccesses ?? 0}
+            label="Total Accesses"
+            Icon={FileText}
+            tint={{ bg: '#dbeafe', fg: '#2563eb' }}
+          />
+          <StatTile
+            value={stats?.thisMonth ?? 0}
+            label="This Month"
+            Icon={Calendar}
+            tint={{ bg: '#fee2e2', fg: PRIMARY[600] }}
+          />
+          <StatTile
+            value={stats?.failedAttempts ?? 0}
+            label="Failed Attempts"
+            Icon={AlertCircle}
+            tint={{ bg: '#fee2e2', fg: PRIMARY[600] }}
+          />
+          <StatTile
+            value={stats?.uniqueLocations ?? 0}
+            label="Locations"
+            Icon={MapPin}
+            tint={{ bg: '#f3e8ff', fg: '#9333ea' }}
+          />
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.filterRow}>
+            <View style={styles.searchBox}>
+              <Search size={14} color={GRAY[400]} />
+              <TextInput
+                value={search}
+                onChangeText={(t) => {
+                  setSearch(t);
+                  setPage(1);
+                }}
+                placeholder="Search by action, location, IP…"
+                placeholderTextColor={GRAY[400]}
+                style={styles.searchInput}
+              />
+            </View>
+            <Select
+              value={type}
+              options={TYPE_OPTIONS}
+              onChange={(v) => {
+                setType(v as AuditLogType | 'all');
+                setPage(1);
+              }}
+            />
+            <Select
+              value={status}
+              options={STATUS_OPTIONS}
+              onChange={(v) => {
+                setStatus(v as AuditLogStatus | 'all');
+                setPage(1);
+              }}
             />
           </View>
 
-          <View style={styles.filterRow}>
-            {/* Type Filter */}
-            <Pressable
-              style={styles.filterButton}
-              onPress={() => {
-                setShowTypeFilter(!showTypeFilter);
-                setShowStatusFilter(false);
-              }}
-            >
-              <Text style={styles.filterButtonText}>
-                {TYPE_OPTIONS.find(o => o.value === filters.type)?.label || 'All Types'}
-              </Text>
-              <Ionicons
-                name={showTypeFilter ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={SEMANTIC.text.secondary}
-              />
-            </Pressable>
-
-            {/* Status Filter */}
-            <Pressable
-              style={styles.filterButton}
-              onPress={() => {
-                setShowStatusFilter(!showStatusFilter);
-                setShowTypeFilter(false);
-              }}
-            >
-              <Text style={styles.filterButtonText}>
-                {STATUS_OPTIONS.find(o => o.value === filters.status)?.label || 'All Status'}
-              </Text>
-              <Ionicons
-                name={showStatusFilter ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={SEMANTIC.text.secondary}
-              />
-            </Pressable>
-          </View>
-
-          {/* Type Filter Dropdown */}
-          {showTypeFilter && (
-            <View style={styles.dropdown}>
-              {TYPE_OPTIONS.map(option => (
-                <Pressable
-                  key={option.value}
+          <Text style={styles.dateRangeLabel}>Date Range</Text>
+          <View style={styles.presetRow}>
+            {PRESETS.map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => {
+                  setPreset(p);
+                  setPage(1);
+                }}
+                style={[
+                  styles.presetChip,
+                  preset === p && styles.presetChipActive,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.dropdownItem,
-                    filters.type === option.value && styles.dropdownItemActive,
+                    styles.presetText,
+                    preset === p && styles.presetTextActive,
                   ]}
-                  onPress={() => handleTypeFilter(option.value)}
                 >
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      filters.type === option.value && styles.dropdownItemTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {filters.type === option.value && (
-                    <Ionicons name="checkmark" size={16} color={PRIMARY[600]} />
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {/* Status Filter Dropdown */}
-          {showStatusFilter && (
-            <View style={styles.dropdown}>
-              {STATUS_OPTIONS.map(option => (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.dropdownItem,
-                    filters.status === option.value && styles.dropdownItemActive,
-                  ]}
-                  onPress={() => handleStatusFilter(option.value)}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownItemText,
-                      filters.status === option.value && styles.dropdownItemTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {filters.status === option.value && (
-                    <Ionicons name="checkmark" size={16} color={PRIMARY[600]} />
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Access History Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Access History</Text>
-          <Pressable style={styles.exportButton} onPress={handleExport}>
-            <Ionicons name="download-outline" size={18} color={PRIMARY[600]} />
-            <Text style={styles.exportButtonText}>Export Logs</Text>
-          </Pressable>
-        </View>
-
-        {/* Logs List */}
-        {data?.logs && data.logs.length > 0 ? (
-          <View style={styles.logsList}>
-            {data.logs.map(log => (
-              <React.Fragment key={log.id}>
-                {renderLogItem({ item: log })}
-              </React.Fragment>
+                  {p}
+                </Text>
+              </Pressable>
+            ))}
+            {LOCKED_PRESETS.map((p) => (
+              <View key={p} style={[styles.presetChip, styles.presetChipLocked]}>
+                <Text style={styles.presetTextLocked}>{p}</Text>
+                <Lock size={10} color={GRAY[500]} />
+              </View>
             ))}
           </View>
-        ) : (
-          <Card variant="outlined" padding="lg" style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={SEMANTIC.text.tertiary} />
-            <Text style={styles.emptyTitle}>No audit logs found</Text>
-            <Text style={styles.emptyText}>
-              {filters.search || filters.type !== 'all' || filters.status !== 'all'
-                ? 'Try adjusting your filters'
-                : 'Activity will appear here once you start using the app'}
-            </Text>
-          </Card>
-        )}
+        </View>
 
-        {/* Pagination */}
-        {data?.pagination && data.pagination.totalPages > 1 && (
-          <View style={styles.pagination}>
-            <Pressable
-              style={[styles.pageButton, page === 1 && styles.pageButtonDisabled]}
-              onPress={() => page > 1 && setPage(page - 1)}
-              disabled={page === 1}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={20}
-                color={page === 1 ? SEMANTIC.text.tertiary : PRIMARY[600]}
-              />
-            </Pressable>
-
-            <Text style={styles.pageText}>
-              Page {page} of {data.pagination.totalPages}
-            </Text>
-
-            <Pressable
-              style={[
-                styles.pageButton,
-                page === data.pagination.totalPages && styles.pageButtonDisabled,
-              ]}
-              onPress={() => page < data.pagination.totalPages && setPage(page + 1)}
-              disabled={page === data.pagination.totalPages}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={
-                  page === data.pagination.totalPages
-                    ? SEMANTIC.text.tertiary
-                    : PRIMARY[600]
-                }
-              />
-            </Pressable>
+        <View style={styles.card}>
+          <View style={styles.historyHeader}>
+            <View>
+              <Text style={styles.cardTitle}>Access History</Text>
+              <Text style={styles.cardSubtitle}>
+                {pagination.total} total records
+              </Text>
+            </View>
+            <View style={[styles.outlineBtn, { opacity: 0.5 }]}>
+              <Download size={14} color={PRIMARY[600]} />
+              <Text style={styles.outlineBtnText}>Export CSV</Text>
+              <Lock size={11} color={PRIMARY[600]} />
+            </View>
           </View>
-        )}
-      </ScrollView>
 
-      <Toast {...toastConfig} onDismiss={hideToast} />
+          {isLoading ? (
+            <View style={styles.loadingBlock}>
+              <ActivityIndicator color={PRIMARY[600]} />
+            </View>
+          ) : logs.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Text style={styles.emptyTitle}>No audit logs found</Text>
+              <Text style={styles.emptyHint}>
+                Try adjusting your filters or selecting a different date range.
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {logs.map((log) => (
+                <LogRow key={log.id} log={log} />
+              ))}
+            </View>
+          )}
+
+          {pagination.totalPages > 1 && (
+            <View style={styles.paginationRow}>
+              <Text style={styles.paginationLabel}>
+                Showing {(page - 1) * PAGE_SIZE + 1} to{' '}
+                {Math.min(page * PAGE_SIZE, pagination.total)} of{' '}
+                {pagination.total} logs
+              </Text>
+              <View style={styles.paginationControls}>
+                <Pressable
+                  onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isFetching}
+                  style={[
+                    styles.pageBtn,
+                    page <= 1 && { opacity: 0.4 },
+                  ]}
+                >
+                  <ChevronUp
+                    size={12}
+                    color={PRIMARY[600]}
+                    style={{ transform: [{ rotate: '-90deg' }] }}
+                  />
+                  <Text style={styles.pageBtnText}>Previous</Text>
+                </Pressable>
+                <View style={[styles.pageNumber, styles.pageNumberActive]}>
+                  <Text style={styles.pageNumberActiveText}>{page}</Text>
+                </View>
+                {page < pagination.totalPages && (
+                  <View style={styles.pageNumber}>
+                    <Text style={styles.pageNumberText}>{page + 1}</Text>
+                  </View>
+                )}
+                <Pressable
+                  onPress={() =>
+                    setPage((p) => Math.min(pagination.totalPages, p + 1))
+                  }
+                  disabled={page >= pagination.totalPages || isFetching}
+                  style={[
+                    styles.pageBtn,
+                    page >= pagination.totalPages && { opacity: 0.4 },
+                  ]}
+                >
+                  <Text style={styles.pageBtnText}>Next</Text>
+                  <ChevronDown
+                    size={12}
+                    color={PRIMARY[600]}
+                    style={{ transform: [{ rotate: '-90deg' }] }}
+                  />
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.privacyFooter}>
+          <View style={styles.privacyHeaderRow}>
+            <View style={styles.privacyDot}>
+              <Lock size={11} color={PRIMARY[600]} />
+            </View>
+            <Text style={styles.privacyTitle}>Security &amp; Privacy</Text>
+          </View>
+          <Text style={styles.privacyText}>
+            All access to your medical profile is logged and stored securely for
+            7 days in compliance with PIPEDA regulations. Upgrade to export your
+            audit logs. If you notice any suspicious activity, please contact
+            our support team immediately.
+          </Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function StatTile({
+  value,
+  label,
+  Icon,
+  tint,
+}: {
+  value: number;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  tint: { bg: string; fg: string };
+}) {
+  return (
+    <View style={[styles.statTile, { borderColor: tint.bg }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statValue, { color: tint.fg }]}>{value}</Text>
+      </View>
+      <View style={[styles.statIcon, { backgroundColor: tint.bg }]}>
+        <Icon size={18} color={tint.fg} />
+      </View>
+    </View>
+  );
+}
+
+function LogRow({ log }: { log: AuditLog }) {
+  const tint = typeTint(log.type);
+  const loc = log.location;
+  const locationText = loc
+    ? [loc.city, loc.region, loc.countryCode].filter(Boolean).join(', ')
+    : '—';
+  return (
+    <View style={styles.logRow}>
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+        <View style={styles.logCol}>
+          <Text style={styles.logDate}>
+            {new Date(log.timestamp || log.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </Text>
+          <Text style={styles.logTime}>
+            {new Date(log.timestamp || log.createdAt).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            })}
+          </Text>
+        </View>
+        <View style={[styles.logCol, { flex: 2 }]}>
+          <Text style={styles.logAction}>{log.action}</Text>
+          {!!log.description && (
+            <Text style={styles.logDescription} numberOfLines={1}>
+              {log.description}
+            </Text>
+          )}
+        </View>
+        <View style={[styles.typeBadge, { backgroundColor: tint.bg }]}>
+          <Text style={[styles.typeBadgeText, { color: tint.fg }]}>
+            {prettyType(log.type)}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.logRowBottom}>
+        <Text style={styles.logMeta}>
+          <Text style={styles.logMetaLabel}>Accessor: </Text>
+          {log.actor.name}
+        </Text>
+        <Text style={styles.logMeta}>
+          <Text style={styles.logMetaLabel}>Location: </Text>
+          {locationText}
+        </Text>
+        {!!log.ipAddress && (
+          <Text style={styles.logMeta}>
+            <Text style={styles.logMetaLabel}>IP: </Text>
+            {log.ipAddress}
+          </Text>
+        )}
+        {!!log.device?.os && (
+          <Text style={styles.logMeta}>
+            <Text style={styles.logMetaLabel}>Device: </Text>
+            {log.device.os}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function prettyType(t: AuditLogType): string {
+  return t.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+function typeTint(t: AuditLogType): { bg: string; fg: string } {
+  if (t === 'login' || t === 'logout') return { bg: '#fee2e2', fg: '#b91c1c' };
+  if (
+    t === 'profile_update' ||
+    t === 'settings_change' ||
+    t === 'account_update'
+  )
+    return { bg: '#dcfce7', fg: '#15803d' };
+  if (t === 'emergency_access' || t === 'bracelet_scan' || t === 'qr_scan')
+    return { bg: '#fef3c7', fg: '#92400e' };
+  return { bg: '#dbeafe', fg: '#1d4ed8' };
+}
+
+function Select<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value) ?? options[0];
+  return (
+    <View style={{ flexBasis: '48%', flexGrow: 1 }}>
+      <Pressable onPress={() => setOpen((s) => !s)} style={styles.selectInput}>
+        <Text style={styles.selectText}>{selected.label}</Text>
+        <ChevronDown size={14} color={GRAY[500]} />
+      </Pressable>
+      {open && (
+        <View style={styles.dropdown}>
+          {options.map((o) => (
+            <Pressable
+              key={o.value}
+              onPress={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+              style={[
+                styles.dropdownItem,
+                value === o.value && styles.dropdownItemActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dropdownItemText,
+                  value === o.value && styles.dropdownItemTextActive,
+                ]}
+              >
+                {o.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SEMANTIC.background.default,
+  root: { flex: 1, backgroundColor: GRAY[50] },
+  scroll: { padding: 16, gap: 14 },
+
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: GRAY[900],
+    letterSpacing: -0.5,
   },
-  headerWrapper: {
-    backgroundColor: SEMANTIC.background.default,
-    borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.default,
-  },
-  appBar: {
+  headerSub: { marginTop: 6, fontSize: 13, color: GRAY[600], lineHeight: 18 },
+  retentionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
-    minHeight: 56,
+    gap: 4,
+    backgroundColor: '#fef9c3',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appBarTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing[4],
-    paddingBottom: spacing[8],
-  },
-  headerInfo: {
-    marginBottom: spacing[6],
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[2],
-  },
-  subtitle: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-    lineHeight: 20,
-  },
-  statsGrid: {
+  retentionText: { color: '#854d0e', fontSize: 11, fontWeight: '700' },
+
+  statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statTile: {
+    flexBasis: '47%',
+    flexGrow: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -spacing[2],
-    marginBottom: spacing[6],
-  },
-  statCardWrapper: {
-    width: '50%',
-    padding: spacing[2],
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#fff',
+    padding: 12,
     borderRadius: 12,
-    padding: spacing[4],
     borderWidth: 1,
-    borderColor: SEMANTIC.border.light,
   },
-  statHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing[2],
-  },
-  statLabel: {
-    fontSize: 13,
-    color: SEMANTIC.text.secondary,
-    flex: 1,
-  },
+  statLabel: { fontSize: 11, color: GRAY[600], fontWeight: '600' },
+  statValue: { fontSize: 22, fontWeight: '800', marginTop: 2 },
   statIcon: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
+
+  card: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: GRAY[100],
+    gap: 12,
   },
-  filtersSection: {
-    marginBottom: spacing[6],
-  },
-  searchContainer: {
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  searchBox: {
+    flexBasis: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: SEMANTIC.background.secondary,
+    gap: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: GRAY[300],
     borderRadius: 10,
-    paddingHorizontal: spacing[3],
-    marginBottom: spacing[3],
+    backgroundColor: '#fff',
   },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[2],
-    fontSize: 15,
-    color: SEMANTIC.text.primary,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  filterButton: {
-    flex: 1,
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 13, color: GRAY[900] },
+
+  selectInput: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: SEMANTIC.background.secondary,
-    borderRadius: 10,
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: SEMANTIC.border.light,
+    borderColor: GRAY[300],
+    borderRadius: 10,
+    backgroundColor: '#fff',
   },
-  filterButtonText: {
-    fontSize: 14,
-    color: SEMANTIC.text.primary,
-  },
+  selectText: { fontSize: 13, color: GRAY[900] },
   dropdown: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    marginTop: spacing[2],
+    marginTop: 4,
     borderWidth: 1,
-    borderColor: SEMANTIC.border.light,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: GRAY[200],
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
   dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.light,
+    borderBottomColor: GRAY[100],
   },
-  dropdownItemActive: {
-    backgroundColor: PRIMARY[50],
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: SEMANTIC.text.primary,
-  },
-  dropdownItemTextActive: {
-    color: PRIMARY[600],
-    fontWeight: '500',
-  },
-  sectionHeader: {
+  dropdownItemActive: { backgroundColor: PRIMARY[50] },
+  dropdownItemText: { fontSize: 13, color: GRAY[800] },
+  dropdownItemTextActive: { color: PRIMARY[700], fontWeight: '600' },
+
+  dateRangeLabel: { fontSize: 13, fontWeight: '700', color: GRAY[800], marginTop: 6 },
+  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: GRAY[200],
+    backgroundColor: '#fff',
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  presetChipActive: { backgroundColor: PRIMARY[600], borderColor: PRIMARY[600] },
+  presetText: { fontSize: 11, color: GRAY[700], fontWeight: '600' },
+  presetTextActive: { color: '#fff' },
+  presetChipLocked: { backgroundColor: GRAY[50] },
+  presetTextLocked: { fontSize: 11, color: GRAY[500], fontWeight: '600' },
+
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[4],
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-  },
-  exportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[3],
-    borderWidth: 1,
-    borderColor: PRIMARY[600],
-    borderRadius: 8,
-  },
-  exportButtonText: {
-    fontSize: 14,
-    color: PRIMARY[600],
-    fontWeight: '500',
-  },
-  logsList: {
-    gap: spacing[3],
-  },
-  logItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing[4],
-    borderWidth: 1,
-    borderColor: SEMANTIC.border.light,
-  },
-  logContent: {
-    flex: 1,
-  },
-  logHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing[3],
-  },
-  logIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing[3],
-  },
-  logInfo: {
-    flex: 1,
-    marginRight: spacing[2],
-  },
-  logAction: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginBottom: 2,
-  },
-  logActor: {
-    fontSize: 13,
-    color: SEMANTIC.text.secondary,
-  },
-  logDescription: {
-    fontSize: 13,
-    color: SEMANTIC.text.tertiary,
-    marginTop: 2,
-  },
-  logMeta: {
-    flexDirection: 'row',
+    gap: 8,
     flexWrap: 'wrap',
+  },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: GRAY[900] },
+  cardSubtitle: { fontSize: 11, color: GRAY[500], marginTop: 2 },
+  outlineBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-    paddingTop: spacing[3],
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: PRIMARY[300],
+    backgroundColor: '#fff',
+  },
+  outlineBtnText: { color: PRIMARY[600], fontSize: 12, fontWeight: '700' },
+
+  loadingBlock: { paddingVertical: 32, alignItems: 'center' },
+  emptyBlock: { paddingVertical: 32, alignItems: 'center', gap: 4 },
+  emptyTitle: { fontSize: 13, color: GRAY[700], fontWeight: '600' },
+  emptyHint: { fontSize: 12, color: GRAY[500] },
+
+  logRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: GRAY[100],
+    gap: 6,
+  },
+  logCol: { flex: 1, gap: 2 },
+  logDate: { fontSize: 12, fontWeight: '700', color: GRAY[900] },
+  logTime: { fontSize: 11, color: GRAY[500] },
+  logAction: { fontSize: 13, fontWeight: '700', color: GRAY[900] },
+  logDescription: { fontSize: 11, color: GRAY[600] },
+  typeBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  typeBadgeText: { fontSize: 10, fontWeight: '700' },
+  logRowBottom: { gap: 2 },
+  logMeta: { fontSize: 11, color: GRAY[600] },
+  logMetaLabel: { fontWeight: '700', color: GRAY[700] },
+
+  paginationRow: {
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: SEMANTIC.border.light,
+    borderTopColor: GRAY[100],
+    gap: 10,
   },
-  metaItem: {
+  paginationLabel: { fontSize: 12, color: GRAY[600] },
+  paginationControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1],
+    justifyContent: 'flex-end',
+    gap: 6,
   },
-  metaText: {
-    fontSize: 12,
-    color: SEMANTIC.text.tertiary,
-  },
-  ipAddress: {
-    fontSize: 12,
-    color: SEMANTIC.text.tertiary,
-    fontFamily: 'monospace',
-  },
-  deviceText: {
-    fontSize: 12,
-    color: SEMANTIC.text.tertiary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing[8],
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginTop: spacing[4],
-    marginBottom: spacing[2],
-  },
-  emptyText: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-    textAlign: 'center',
-  },
-  pagination: {
+  pageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing[6],
-    gap: spacing[4],
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: PRIMARY[300],
   },
-  pageButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: SEMANTIC.background.secondary,
+  pageBtnText: { color: PRIMARY[600], fontSize: 12, fontWeight: '700' },
+  pageNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: GRAY[200],
+  },
+  pageNumberActive: { backgroundColor: PRIMARY[600], borderColor: PRIMARY[600] },
+  pageNumberText: { color: GRAY[700], fontWeight: '700', fontSize: 12 },
+  pageNumberActiveText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+
+  privacyFooter: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  privacyHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  privacyDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fee2e2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageButtonDisabled: {
-    opacity: 0.5,
-  },
-  pageText: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-  },
+  privacyTitle: { fontSize: 14, fontWeight: '700', color: GRAY[900] },
+  privacyText: { fontSize: 12, color: GRAY[700], lineHeight: 17 },
 });

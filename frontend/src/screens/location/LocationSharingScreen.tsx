@@ -1,704 +1,872 @@
 /**
- * Location Sharing Screen
- * Allows users to share their location with emergency contacts
+ * Location Sharing Screen — mirrors the web's /dashboard/location-sharing 1:1.
+ *
+ * Companion-app note: uses the same backend the web uses
+ * (POST /api/location/share, GET /api/location/history, DELETE /api/location/:token).
+ * Static OpenStreetMap tile is rendered as an Image — no react-native-maps
+ * dependency needed for v1. Native share sheet (Share.share) replaces the
+ * web's clipboard/email/WhatsApp picker.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  RefreshControl,
-  Alert,
-  Linking,
-  Share,
-  Platform,
-  TouchableOpacity,
-  ActivityIndicator,
   Pressable,
+  Image,
+  Alert,
+  Share,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
-import * as Clipboard from 'expo-clipboard';
 import {
   MapPin,
   Share2,
-  Clock,
   Eye,
-  Copy,
-  ExternalLink,
-  Phone,
-  MessageCircle,
-  Mail,
-  ChevronRight,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
+  Clock,
+  Navigation as NavIcon,
   RefreshCw,
-  Navigation,
-  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  ExternalLink,
+  Trash2,
+  Copy,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { AppScreenNavigationProp } from '@/navigation/types';
+import * as Clipboard from 'expo-clipboard';
 
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { useTheme } from '@/theme/ThemeProvider';
-import { spacing, typography, borderRadius } from '@/theme/theme';
-import { GRAY, SEMANTIC } from '@/constants/colors';
-import {
-  createLocationShare,
-  getLocationHistory,
-  deactivateLocationShare,
-  LocationShare,
-} from '@/api/location';
-import { API_CONFIG } from '@/constants/config';
+import { PRIMARY, GRAY } from '@/constants/colors';
+import locationApi, { type LocationShare } from '@/api/location';
 
-export default function LocationSharingScreen() {
-  const navigation = useNavigation<AppScreenNavigationProp>();
-  const theme = useTheme();
-  const primaryColor = theme.primary[600];
+interface Coords {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  altitude?: number | null;
+}
 
-  // State
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [sharingLocation, setSharingLocation] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    accuracy?: number;
-    address?: string;
-  } | null>(null);
+export function LocationSharingScreen() {
+  return <LocationSharingContent />;
+}
+
+export default LocationSharingScreen;
+
+function LocationSharingContent() {
+  const queryClient = useQueryClient();
+  const [current, setCurrent] = useState<Coords | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [shares, setShares] = useState<LocationShare[]>([]);
-  const [stats, setStats] = useState({ totalShares: 0, totalViews: 0 });
-  const [newShareUrl, setNewShareUrl] = useState<string | null>(null);
+  const [resolvingLocation, setResolvingLocation] = useState(false);
 
-  // Get current location
-  const getCurrentLocation = useCallback(async () => {
+  const fetchPosition = useCallback(async () => {
+    setResolvingLocation(true);
+    setLocationError(null);
     try {
-      setLocationError(null);
-
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocationError('Location permission denied. Please enable location access in settings.');
+        setLocationError('Location permission denied');
         return;
       }
-
-      const location = await Location.getCurrentPositionAsync({
+      const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
-      // Try to get address
-      let address: string | undefined;
-      try {
-        const [geocode] = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-        if (geocode) {
-          address = [geocode.street, geocode.city, geocode.region]
-            .filter(Boolean)
-            .join(', ');
-        }
-      } catch (e) {
-        console.log('Geocoding error:', e);
-      }
-
-      setCurrentLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy ?? undefined,
-        address,
+      setCurrent({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy ?? undefined,
+        altitude: pos.coords.altitude,
       });
-    } catch (error: any) {
-      const errorMessage = error?.message?.toLowerCase() || '';
-      let userMessage = 'We couldn\'t get your location. Please try again.';
-
-      if (errorMessage.includes('permission')) {
-        userMessage = 'Location permission is required. Please enable it in your device settings.';
-      } else if (errorMessage.includes('timeout')) {
-        userMessage = 'Getting your location took too long. Please try again.';
-      } else if (errorMessage.includes('unavailable')) {
-        userMessage = 'Location services are not available. Please check your device settings.';
-      }
-
-      setLocationError(userMessage);
+    } catch (e: any) {
+      setLocationError(e?.message ?? 'Unable to get location');
+    } finally {
+      setResolvingLocation(false);
     }
   }, []);
 
-  // Load share history
-  const loadShareHistory = useCallback(async () => {
-    try {
-      const response = await getLocationHistory(20, true);
-      if (response.success) {
-        setShares(response.shares);
-        setStats(response.stats);
-      }
-    } catch (error) {
-      console.error('Error loading share history:', error);
-    }
-  }, []);
-
-  // Initial load
   useEffect(() => {
-    getCurrentLocation();
-    loadShareHistory();
-  }, [getCurrentLocation, loadShareHistory]);
+    fetchPosition();
+  }, [fetchPosition]);
 
-  // Refresh handler
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([getCurrentLocation(), loadShareHistory()]);
-    setRefreshing(false);
-  }, [getCurrentLocation, loadShareHistory]);
+  const historyQ = useQuery({
+    queryKey: ['location', 'history'],
+    queryFn: () => locationApi.getLocationHistory(20),
+  });
+  const shares = historyQ.data?.shares ?? [];
 
-  // Create location share
-  const handleShareLocation = async () => {
-    if (!currentLocation) {
-      Alert.alert('Error', 'Unable to get current location. Please try again.');
-      return;
-    }
-
-    setSharingLocation(true);
-    try {
-      const response = await createLocationShare({
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        accuracy: currentLocation.accuracy,
+  const shareMutation = useMutation({
+    mutationFn: () => {
+      if (!current) {
+        throw new Error('No current location');
+      }
+      return locationApi.createLocationShare({
+        latitude: current.latitude,
+        longitude: current.longitude,
+        accuracy: current.accuracy,
+        altitude: current.altitude ?? undefined,
         expiresInHours: 1,
       });
-
-      if (response.success) {
-        const shareUrl = `${API_CONFIG.BASE_URL}/location/${response.shareToken}`;
-        setNewShareUrl(shareUrl);
-
-        // Show share options
-        showShareOptions(shareUrl);
-
-        // Reload history
-        loadShareHistory();
+    },
+    onSuccess: async (res) => {
+      queryClient.invalidateQueries({ queryKey: ['location', 'history'] });
+      try {
+        await Share.share({
+          message: `I'm sharing my live location with you for the next hour:\n${res.shareUrl}`,
+          url: res.shareUrl,
+        });
+      } catch {
+        Alert.alert('Share link ready', res.shareUrl);
       }
-    } catch (error: any) {
-      const errorMessage = error?.message?.toLowerCase() || '';
-      let userMessage = 'We couldn\'t share your location. Please try again.';
+    },
+    onError: (e: any) => {
+      Alert.alert(
+        'Couldn’t share',
+        e?.message ?? 'Please try again.',
+      );
+    },
+  });
 
-      if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-        userMessage = 'Unable to connect. Please check your internet connection and try again.';
-      }
+  const deactivateMutation = useMutation({
+    mutationFn: (token: string) => locationApi.deactivateLocationShare(token),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['location', 'history'] }),
+  });
 
-      Alert.alert('Unable to Share Location', userMessage);
-    } finally {
-      setSharingLocation(false);
-    }
-  };
-
-  // Show share options modal
-  const showShareOptions = (url: string) => {
-    Alert.alert(
-      'Location Link Ready',
-      'Your location link has been created. How would you like to share it?',
-      [
-        {
-          text: 'Copy Link',
-          onPress: () => copyToClipboard(url),
-        },
-        {
-          text: 'Share',
-          onPress: () => shareLink(url),
-        },
-        {
-          text: 'Done',
-          style: 'cancel',
-        },
-      ]
-    );
-  };
-
-  // Copy link to clipboard
-  const copyToClipboard = async (url: string) => {
-    await Clipboard.setStringAsync(url);
-    Alert.alert('Link Copied', 'The location link has been copied to your clipboard.');
-  };
-
-  // Share link using native share
-  const shareLink = async (url: string) => {
-    try {
-      await Share.share({
-        message: `Check my location: ${url}`,
-        url: url,
-      });
-    } catch (error) {
-      console.error('Share error:', error);
-    }
-  };
-
-  // Deactivate a share
-  const handleDeactivateShare = async (shareToken: string) => {
-    Alert.alert(
-      'Deactivate Share',
-      'This will make the link inaccessible. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deactivateLocationShare(shareToken);
-              loadShareHistory();
-            } catch (error: any) {
-              Alert.alert('Unable to Deactivate', 'We couldn\'t deactivate this share link. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Get share status
-  const getShareStatus = (share: LocationShare) => {
-    const now = new Date();
-    const expiresAt = new Date(share.expiresAt);
-
-    if (!share.isActive) {
-      return { label: 'Deactivated', color: GRAY[500], icon: XCircle };
-    }
-    if (expiresAt < now) {
-      return { label: 'Expired', color: '#ef4444', icon: Clock };
-    }
-    return { label: 'Active', color: '#10b981', icon: CheckCircle };
-  };
-
-  // Format time remaining
-  const getTimeRemaining = (expiresAt: string) => {
-    const now = new Date();
-    const expiry = new Date(expiresAt);
-    const diff = expiry.getTime() - now.getTime();
-
-    if (diff <= 0) return 'Expired';
-
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 60) return `${minutes}m remaining`;
-
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m remaining`;
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const activeShares = shares.filter(
+    (s) => s.isActive && new Date(s.expiresAt) > new Date(),
+  );
+  const totalViews = shares.reduce((acc, s) => acc + s.accessCount, 0);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ArrowLeft size={24} color={SEMANTIC.text.primary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Location Sharing</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
+    <View style={styles.root}>
       <ScrollView
+        style={styles.root}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={primaryColor}
-          />
-        }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Current Location Card */}
-        <Card style={styles.locationCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleRow}>
-              <MapPin size={24} color={primaryColor} />
-              <Text style={styles.cardTitle}>Current Location</Text>
-            </View>
-            <TouchableOpacity onPress={getCurrentLocation}>
-              <RefreshCw size={20} color={GRAY[500]} />
-            </TouchableOpacity>
-          </View>
+        <Header />
 
-          {locationError ? (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={20} color={'#ef4444'} />
-              <Text style={styles.errorText}>{locationError}</Text>
-            </View>
-          ) : currentLocation ? (
-            <View style={styles.locationInfo}>
-              <Text style={styles.addressText}>
-                {currentLocation.address || 'Getting address...'}
-              </Text>
-              <Text style={styles.coordsText}>
-                {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-              </Text>
-              {currentLocation.accuracy && (
-                <Text style={styles.accuracyText}>
-                  Accuracy: {Math.round(currentLocation.accuracy)}m
-                </Text>
-              )}
-            </View>
-          ) : (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={primaryColor} />
-              <Text style={styles.loadingText}>Getting location...</Text>
-            </View>
-          )}
-
-          <Button
-            onPress={handleShareLocation}
-            disabled={!currentLocation || sharingLocation}
-            style={{ ...styles.shareButton, backgroundColor: primaryColor }}
-            icon={<Share2 size={20} color="#FFFFFF" />}
-          >
-            {sharingLocation ? 'Sharing...' : 'Share My Location'}
-          </Button>
-
-          <Text style={styles.shareNote}>
-            Creates a link that expires in 1 hour
-          </Text>
-        </Card>
-
-        {/* Stats Card */}
-        <View style={styles.statsRow}>
-          <Card style={styles.statCard}>
-            <Share2 size={24} color={primaryColor} />
-            <Text style={styles.statValue}>{stats.totalShares}</Text>
-            <Text style={styles.statLabel}>Total Shares</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Eye size={24} color={primaryColor} />
-            <Text style={styles.statValue}>{stats.totalViews}</Text>
-            <Text style={styles.statLabel}>Total Views</Text>
-          </Card>
+        <View style={styles.statsGrid}>
+          <StatCard
+            label="Active Shares"
+            value={activeShares.length}
+            Icon={Share2}
+            tint={{ bg: '#dbeafe', fg: '#2563eb' }}
+          />
+          <StatCard
+            label="Total Views"
+            value={totalViews}
+            Icon={Eye}
+            tint={{ bg: '#dcfce7', fg: '#16a34a' }}
+          />
+          <StatCard
+            label="Total Shares"
+            value={shares.length}
+            Icon={Clock}
+            tint={{ bg: '#f3e8ff', fg: '#9333ea' }}
+          />
         </View>
 
-        {/* Share History */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Share History</Text>
+        <CurrentLocationCard
+          current={current}
+          error={locationError}
+          loading={resolvingLocation}
+          onRefresh={fetchPosition}
+          onShare={() => shareMutation.mutate()}
+          sharing={shareMutation.isPending}
+        />
 
-          {shares.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Navigation size={48} color={GRAY[300]} />
-              <Text style={styles.emptyTitle}>No shares yet</Text>
-              <Text style={styles.emptyText}>
-                Share your location with emergency contacts for quick assistance
-              </Text>
-            </Card>
-          ) : (
-            shares.map((share) => {
-              const status = getShareStatus(share);
-              const StatusIcon = status.icon;
+        <ShareHistoryCard
+          loading={historyQ.isLoading}
+          shares={shares}
+          onRefresh={() => historyQ.refetch()}
+          onDeactivate={(token) => {
+            Alert.alert(
+              'Deactivate share?',
+              'The link will stop working immediately.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Deactivate',
+                  style: 'destructive',
+                  onPress: () => deactivateMutation.mutate(token),
+                },
+              ],
+            );
+          }}
+        />
 
-              return (
-                <Card key={share.id} style={styles.shareCard}>
-                  <View style={styles.shareHeader}>
-                    <View style={styles.shareStatus}>
-                      <StatusIcon size={16} color={status.color} />
-                      <Text style={[styles.statusText, { color: status.color }]}>
-                        {status.label}
-                      </Text>
-                    </View>
-                    <Text style={styles.shareDate}>
-                      {formatDate(share.createdAt)}
-                    </Text>
-                  </View>
+        <HowItWorks />
 
-                  <View style={styles.shareInfo}>
-                    <Text style={styles.shareAddress} numberOfLines={1}>
-                      {share.address || `${share.latitude.toFixed(4)}, ${share.longitude.toFixed(4)}`}
-                    </Text>
-                    {status.label === 'Active' && (
-                      <Text style={styles.timeRemaining}>
-                        {getTimeRemaining(share.expiresAt)}
-                      </Text>
-                    )}
-                  </View>
+        <FreeNotice />
 
-                  <View style={styles.shareStats}>
-                    <View style={styles.shareStat}>
-                      <Eye size={14} color={GRAY[500]} />
-                      <Text style={styles.shareStatText}>
-                        {share.accessCount} views
-                      </Text>
-                    </View>
-                  </View>
-
-                  {status.label === 'Active' && (
-                    <View style={styles.shareActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => copyToClipboard(`${API_CONFIG.BASE_URL}/location/${share.shareToken}`)}
-                      >
-                        <Copy size={16} color={primaryColor} />
-                        <Text style={[styles.actionText, { color: primaryColor }]}>
-                          Copy
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => shareLink(`${API_CONFIG.BASE_URL}/location/${share.shareToken}`)}
-                      >
-                        <Share2 size={16} color={primaryColor} />
-                        <Text style={[styles.actionText, { color: primaryColor }]}>
-                          Share
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDeactivateShare(share.shareToken)}
-                      >
-                        <XCircle size={16} color={'#ef4444'} />
-                        <Text style={[styles.actionText, { color: '#ef4444' }]}>
-                          Deactivate
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </Card>
-              );
-            })
-          )}
-        </View>
+        <View style={{ height: 24 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Header
+// ──────────────────────────────────────────────────────────────────────────
+
+function Header() {
+  return (
+    <View>
+      <View style={styles.headerTitleRow}>
+        <MapPin size={26} color="#2563eb" />
+        <Text style={styles.headerTitle}>Location Sharing</Text>
+      </View>
+      <Text style={styles.headerSub}>
+        Share your location with emergency contacts in case of emergencies. All
+        maps are powered by OpenStreetMap (free).
+      </Text>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Stat cards
+// ──────────────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  Icon,
+  tint,
+}: {
+  label: string;
+  value: number;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  tint: { bg: string; fg: string };
+}) {
+  return (
+    <View style={[styles.statCard, { borderColor: tint.bg }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statValue, { color: tint.fg }]}>{value}</Text>
+      </View>
+      <View style={[styles.statIcon, { backgroundColor: tint.bg }]}>
+        <Icon size={20} color={tint.fg} />
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Current location card
+// ──────────────────────────────────────────────────────────────────────────
+
+function CurrentLocationCard({
+  current,
+  error,
+  loading,
+  onRefresh,
+  onShare,
+  sharing,
+}: {
+  current: Coords | null;
+  error: string | null;
+  loading: boolean;
+  onRefresh: () => void;
+  onShare: () => void;
+  sharing: boolean;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderTitleRow}>
+          <NavIcon size={18} color="#2563eb" />
+          <Text style={styles.cardTitle}>Your Current Location</Text>
+        </View>
+        <Pressable
+          onPress={onRefresh}
+          disabled={loading}
+          style={styles.refreshBtn}
+          hitSlop={8}
+        >
+          <RefreshCw size={14} color={GRAY[600]} />
+          <Text style={styles.refreshText}>Refresh</Text>
+        </Pressable>
+      </View>
+
+      {error ? (
+        <LocationError
+          message={error}
+          onRetry={onRefresh}
+          onOpenSettings={() => Linking.openSettings()}
+        />
+      ) : current ? (
+        <MapPreview latitude={current.latitude} longitude={current.longitude} />
+      ) : (
+        <View style={styles.mapPlaceholder}>
+          <ActivityIndicator color={GRAY[400]} />
+          <Text style={styles.mapPlaceholderText}>Getting your location…</Text>
+        </View>
+      )}
+
+      <Pressable
+        onPress={onShare}
+        disabled={!current || sharing}
+        style={[
+          styles.shareBtn,
+          (!current || sharing) && { opacity: 0.5 },
+        ]}
+      >
+        {sharing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <MapPin size={18} color="#fff" />
+        )}
+        <Text style={styles.shareBtnText}>
+          {sharing ? 'Creating share link…' : 'Share My Location'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function LocationError({
+  message,
+  onRetry,
+  onOpenSettings,
+}: {
+  message: string;
+  onRetry: () => void;
+  onOpenSettings: () => void;
+}) {
+  const denied = message.toLowerCase().includes('denied');
+  return (
+    <View style={styles.errorBox}>
+      <View style={styles.errorHeader}>
+        <AlertCircle size={20} color="#a16207" />
+        <Text style={styles.errorTitle}>{message}</Text>
+      </View>
+      {denied ? (
+        <Text style={styles.errorText}>
+          Location access is blocked. Open Settings → MedGuard → Permissions →
+          Location, and grant access.
+        </Text>
+      ) : (
+        <Text style={styles.errorText}>
+          Please enable location access to share your location.
+        </Text>
+      )}
+      <View style={styles.errorActions}>
+        <Pressable onPress={onRetry} style={styles.errorPrimaryBtn}>
+          <Text style={styles.errorPrimaryBtnText}>Try Again</Text>
+        </Pressable>
+        {denied && (
+          <Pressable onPress={onOpenSettings} style={styles.errorSecondaryBtn}>
+            <Text style={styles.errorSecondaryBtnText}>Open Settings</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function MapPreview({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const url = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=600x300&maptype=mapnik&markers=${latitude},${longitude},red-pushpin`;
+  return (
+    <View style={styles.mapWrap}>
+      <Image
+        source={{ uri: url }}
+        style={styles.mapImage}
+        resizeMode="cover"
+      />
+      <View style={styles.mapPin}>
+        <View style={styles.mapPinBubble}>
+          <MapPin size={18} color="#fff" />
+        </View>
+      </View>
+      <View style={styles.mapBadge}>
+        <View style={styles.mapBadgeDot} />
+        <Text style={styles.mapBadgeText}>OpenStreetMap (Free)</Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Share history
+// ──────────────────────────────────────────────────────────────────────────
+
+function ShareHistoryCard({
+  loading,
+  shares,
+  onRefresh,
+  onDeactivate,
+}: {
+  loading: boolean;
+  shares: LocationShare[];
+  onRefresh: () => void;
+  onDeactivate: (token: string) => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderTitleRow}>
+          <Clock size={16} color={GRAY[600]} />
+          <Text style={styles.cardTitle}>Share History</Text>
+        </View>
+        <Pressable onPress={onRefresh} style={styles.refreshBtn} hitSlop={8}>
+          <RefreshCw size={14} color={GRAY[600]} />
+          <Text style={styles.refreshText}>Refresh</Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <View style={styles.cardLoading}>
+          <ActivityIndicator color={PRIMARY[600]} />
+        </View>
+      ) : shares.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MapPin size={40} color={GRAY[300]} />
+          <Text style={styles.emptyTitle}>No shares yet</Text>
+          <Text style={styles.emptyHint}>
+            Share your location to see history
+          </Text>
+        </View>
+      ) : (
+        <View style={{ gap: 10 }}>
+          {shares.map((s) => (
+            <ShareHistoryItem
+              key={s.id}
+              share={s}
+              onDeactivate={() => onDeactivate(s.shareToken)}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ShareHistoryItem({
+  share,
+  onDeactivate,
+}: {
+  share: LocationShare;
+  onDeactivate: () => void;
+}) {
+  const expired = new Date(share.expiresAt) < new Date();
+  const active = share.isActive && !expired;
+  const status: { label: string; bg: string; fg: string } = !share.isActive
+    ? { label: 'Deactivated', bg: GRAY[100], fg: GRAY[700] }
+    : expired
+    ? { label: 'Expired', bg: '#fef9c3', fg: '#a16207' }
+    : { label: 'Active', bg: '#dcfce7', fg: '#166534' };
+
+  const handleCopy = async () => {
+    const url = `https://nfc-medical-profile-platform.vercel.app/location/${share.shareToken}`;
+    await Clipboard.setStringAsync(url);
+    Alert.alert('Copied', 'Share link copied to clipboard.');
+  };
+
+  return (
+    <View
+      style={[
+        styles.shareItem,
+        active ? styles.shareItemActive : styles.shareItemInactive,
+      ]}
+    >
+      <View style={styles.shareItemHeader}>
+        <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+          <Text style={[styles.statusBadgeText, { color: status.fg }]}>
+            {status.label}
+          </Text>
+        </View>
+        <Text style={styles.shareItemTime}>
+          {formatTimeAgo(share.createdAt)}
+        </Text>
+      </View>
+
+      <View style={styles.shareItemRow}>
+        <MapPin size={14} color={GRAY[400]} />
+        <Text style={styles.shareItemLocation} numberOfLines={1}>
+          {share.city && share.region
+            ? `${share.city}, ${share.region}`
+            : `${share.latitude.toFixed(4)}, ${share.longitude.toFixed(4)}`}
+        </Text>
+      </View>
+
+      <View style={styles.shareItemRow}>
+        <Eye size={12} color={GRAY[400]} />
+        <Text style={styles.shareItemViews}>{share.accessCount} views</Text>
+      </View>
+
+      {active && (
+        <View style={styles.shareItemActions}>
+          <Pressable onPress={handleCopy} style={styles.shareActionBtn}>
+            <Copy size={14} color={GRAY[600]} />
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              Share.share({
+                message: `My location: https://nfc-medical-profile-platform.vercel.app/location/${share.shareToken}`,
+              })
+            }
+            style={[
+              styles.shareActionBtn,
+              { backgroundColor: '#dbeafe' },
+            ]}
+          >
+            <ExternalLink size={14} color="#2563eb" />
+          </Pressable>
+          <Pressable
+            onPress={onDeactivate}
+            style={[
+              styles.shareActionBtn,
+              { backgroundColor: '#fee2e2' },
+            ]}
+          >
+            <Trash2 size={14} color={PRIMARY[600]} />
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function formatTimeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// How It Works
+// ──────────────────────────────────────────────────────────────────────────
+
+function HowItWorks() {
+  const steps = [
+    {
+      n: '1',
+      bg: '#dbeafe',
+      fg: '#2563eb',
+      title: 'Share Location',
+      text: 'Tap the button to share your GPS location. A unique link is generated.',
+    },
+    {
+      n: '2',
+      bg: '#dcfce7',
+      fg: '#16a34a',
+      title: 'Send to Contacts',
+      text: 'Share via SMS, WhatsApp, or Email to your emergency contacts.',
+    },
+    {
+      n: '3',
+      bg: '#f3e8ff',
+      fg: '#9333ea',
+      title: 'View Nearby Help',
+      text: 'Recipients see your location with nearby hospitals, police & pharmacies.',
+    },
+  ];
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeaderTitleRow}>
+        <Info size={16} color="#2563eb" />
+        <Text style={styles.cardTitle}>How Location Sharing Works</Text>
+      </View>
+      <View style={styles.howGrid}>
+        {steps.map((s) => (
+          <View key={s.n} style={styles.howTile}>
+            <View style={[styles.howCircle, { backgroundColor: s.bg }]}>
+              <Text style={[styles.howNumber, { color: s.fg }]}>{s.n}</Text>
+            </View>
+            <Text style={styles.howTitle}>{s.title}</Text>
+            <Text style={styles.howText}>{s.text}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function FreeNotice() {
+  return (
+    <View style={styles.freeNotice}>
+      <CheckCircle2 size={20} color="#16a34a" />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.freeTitle}>100% Free — No Hidden Costs</Text>
+        <Text style={styles.freeText}>
+          Location sharing uses OpenStreetMap and Overpass API which are
+          completely free and open-source. Your location data is encrypted and
+          share links expire after 1 hour for privacy protection.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────────────────────────────────
+
+const CARD_RADIUS = 16;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SEMANTIC.background.secondary,
+  root: { flex: 1, backgroundColor: GRAY[50] },
+  scrollContent: { padding: 16, gap: 14 },
+
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: GRAY[900],
+    letterSpacing: -0.5,
   },
-  header: {
+  headerSub: {
+    marginTop: 6,
+    fontSize: 13,
+    color: GRAY[600],
+    lineHeight: 18,
+  },
+
+  // Stat grid
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  statCard: {
+    flexBasis: '30%',
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.light,
     backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
+    gap: 8,
+    minHeight: 80,
   },
-  backButton: {
+  statLabel: { fontSize: 11, color: GRAY[600], fontWeight: '500' },
+  statValue: { fontSize: 26, fontWeight: '800', marginTop: 2 },
+  statIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  scrollContent: {
-    padding: spacing[4],
-    paddingTop: spacing[4],
-  },
-  locationCard: {
-    padding: spacing[4],
-    marginBottom: spacing[4],
+
+  // Card
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: GRAY[100],
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[3],
   },
-  cardTitleRow: {
+  cardHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: GRAY[900] },
+  cardLoading: { paddingVertical: 24, alignItems: 'center' },
+
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  refreshText: { fontSize: 12, color: GRAY[600], fontWeight: '600' },
+
+  // Map preview
+  mapWrap: {
+    height: 220,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: GRAY[100],
+    position: 'relative',
+  },
+  mapImage: { width: '100%', height: '100%' },
+  mapPin: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -16 }, { translateY: -32 }],
+  },
+  mapPinBubble: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: PRIMARY[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  mapBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  cardTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: SEMANTIC.text.primary,
+  mapBadgeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a' },
+  mapBadgeText: { fontSize: 10, color: GRAY[800], fontWeight: '600' },
+  mapPlaceholder: {
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: GRAY[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  locationInfo: {
-    marginBottom: spacing[4],
-  },
-  addressText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium,
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[1],
-  },
-  coordsText: {
-    fontSize: typography.fontSize.sm,
-    color: GRAY[500],
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  accuracyText: {
-    fontSize: typography.fontSize.xs,
-    color: GRAY[400],
-    marginTop: spacing[1],
-  },
-  errorContainer: {
+  mapPlaceholderText: { fontSize: 12, color: GRAY[500] },
+
+  // Share button
+  shareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    padding: spacing[3],
-    backgroundColor: '#fef2f2',
-    borderRadius: borderRadius.md,
-    marginBottom: spacing[3],
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
   },
-  errorText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    color: '#ef4444',
+  shareBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Error
+  errorBox: {
+    backgroundColor: '#fef9c3',
+    borderColor: '#fde047',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
   },
-  loadingContainer: {
+  errorHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  errorTitle: { color: '#854d0e', fontWeight: '700', fontSize: 13 },
+  errorText: { color: '#a16207', fontSize: 12, lineHeight: 17 },
+  errorActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  errorPrimaryBtn: {
+    backgroundColor: '#ca8a04',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorPrimaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  errorSecondaryBtn: {
+    backgroundColor: '#fff',
+    borderColor: '#fde047',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorSecondaryBtnText: { color: '#a16207', fontWeight: '700', fontSize: 12 },
+
+  // Empty state
+  emptyState: { alignItems: 'center', paddingVertical: 24, gap: 4 },
+  emptyTitle: { fontSize: 13, color: GRAY[500], marginTop: 6, fontWeight: '600' },
+  emptyHint: { fontSize: 12, color: GRAY[400] },
+
+  // Share item
+  shareItem: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    gap: 6,
+  },
+  shareItemActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  shareItemInactive: {
+    backgroundColor: GRAY[50],
+    borderColor: GRAY[200],
+  },
+  shareItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    padding: spacing[3],
-    marginBottom: spacing[3],
-  },
-  loadingText: {
-    fontSize: typography.fontSize.sm,
-    color: GRAY[500],
-  },
-  shareButton: {
-    marginTop: spacing[2],
-  },
-  shareNote: {
-    fontSize: typography.fontSize.xs,
-    color: GRAY[500],
-    textAlign: 'center',
-    marginTop: spacing[2],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing[3],
-    marginBottom: spacing[4],
-  },
-  statCard: {
-    flex: 1,
-    padding: spacing[4],
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: SEMANTIC.text.primary,
-    marginTop: spacing[2],
-  },
-  statLabel: {
-    fontSize: typography.fontSize.xs,
-    color: GRAY[500],
-    marginTop: spacing[1],
-  },
-  section: {
-    marginBottom: spacing[4],
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[3],
-  },
-  emptyCard: {
-    padding: spacing[8],
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: SEMANTIC.text.primary,
-    marginTop: spacing[3],
-  },
-  emptyText: {
-    fontSize: typography.fontSize.sm,
-    color: GRAY[500],
-    textAlign: 'center',
-    marginTop: spacing[2],
-  },
-  shareCard: {
-    padding: spacing[4],
-    marginBottom: spacing[3],
-  },
-  shareHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  statusBadgeText: { fontSize: 10, fontWeight: '700' },
+  shareItemTime: { fontSize: 10, color: GRAY[500] },
+  shareItemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  shareItemLocation: { fontSize: 12, color: GRAY[700], flex: 1 },
+  shareItemViews: { fontSize: 11, color: GRAY[500] },
+  shareItemActions: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+  },
+  shareActionBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    backgroundColor: GRAY[100],
+    borderRadius: 8,
     alignItems: 'center',
-    marginBottom: spacing[2],
   },
-  shareStatus: {
-    flexDirection: 'row',
+
+  // How It Works
+  howGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  howTile: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    backgroundColor: '#fff',
+    borderColor: GRAY[200],
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 6,
+  },
+  howCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    gap: spacing[1],
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  statusText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-  },
-  shareDate: {
-    fontSize: typography.fontSize.xs,
-    color: GRAY[500],
-  },
-  shareInfo: {
-    marginBottom: spacing[2],
-  },
-  shareAddress: {
-    fontSize: typography.fontSize.base,
-    color: SEMANTIC.text.primary,
-  },
-  timeRemaining: {
-    fontSize: typography.fontSize.xs,
-    color: '#10b981',
-    marginTop: spacing[1],
-  },
-  shareStats: {
+  howNumber: { fontSize: 14, fontWeight: '800' },
+  howTitle: { fontSize: 13, fontWeight: '700', color: GRAY[900] },
+  howText: { fontSize: 11, color: GRAY[600], lineHeight: 16 },
+
+  // Free notice
+  freeNotice: {
     flexDirection: 'row',
-    gap: spacing[4],
-    marginBottom: spacing[3],
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+    borderWidth: 1,
+    borderRadius: CARD_RADIUS,
+    padding: 14,
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  shareStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-  },
-  shareStatText: {
-    fontSize: typography.fontSize.xs,
-    color: GRAY[500],
-  },
-  shareActions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: SEMANTIC.border.light,
-    paddingTop: spacing[3],
-    gap: spacing[4],
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-  },
-  actionText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-  },
+  freeTitle: { fontSize: 14, fontWeight: '700', color: GRAY[900], marginBottom: 4 },
+  freeText: { fontSize: 12, color: GRAY[700], lineHeight: 17 },
 });

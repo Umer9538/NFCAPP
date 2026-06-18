@@ -9,7 +9,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DashboardTabParamList } from './types';
-import { SEMANTIC, GRAY } from '@/constants/colors';
+import { SEMANTIC, GRAY, PRIMARY } from '@/constants/colors';
 import { spacing, typography } from '@/theme/theme';
 import { useTheme } from '@/theme/ThemeProvider';
 import { defaultTheme } from '@/theme/colors';
@@ -24,10 +24,11 @@ import { LocationSharingScreen } from '@/screens/location';
 const Tab = createBottomTabNavigator<DashboardTabParamList>();
 
 export default function DashboardNavigator() {
-  // Get dynamic theme colors based on account type
   const theme = useTheme();
-  const primaryColor = theme.primary[600];
-  const primaryLight = theme.primary[50];
+  // Companion app brand is red — keep the bottom navbar consistent with the
+  // web's MedID red regardless of the user's accountType-driven palette.
+  const primaryColor = PRIMARY[600];
+  const primaryLight = PRIMARY[50];
 
   return (
     <Tab.Navigator
