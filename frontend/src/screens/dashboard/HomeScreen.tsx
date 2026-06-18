@@ -1,10 +1,10 @@
 /**
- * Home Screen (Individual Dashboard)
- * Modern dashboard matching organization dashboard design
- * Uses dynamic theme colors based on account type
+ * Home Screen — Individual Dashboard
+ * Mirrors web /dashboard 1:1: stat cards, today's medications,
+ * quick actions, health reminders, recent activity.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,712 +12,895 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  CheckCircle,
-  Watch,
-  Eye,
-  Heart,
-  Activity,
-  Shield,
-  AlertTriangle,
-  Bell,
-  ChevronRight,
-  Sparkles,
-  CircleCheck,
-  Link2,
-  TrendingUp,
-  User,
-} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import {
+  CheckCircle2,
+  Activity,
+  Users,
+  Shield,
+  AlertCircle,
+  Heart,
+  MapPin,
+  Pill,
+  Flame,
+  ArrowRight,
+  Clock,
+  Eye,
+  Map as MapIcon,
+} from 'lucide-react-native';
 
-import { LoadingSpinner, Toast, useToast } from '@/components/ui';
+import { Toast, useToast } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { dashboardApi } from '@/api/dashboard';
-import { useTheme } from '@/theme/ThemeProvider';
-import { SEMANTIC, GRAY } from '@/constants/colors';
-import { spacing } from '@/theme/theme';
+import { PRIMARY, GRAY } from '@/constants/colors';
+import type {
+  DashboardStats,
+  HealthReminder,
+  MedicationWidgetData,
+  RecentActivity,
+} from '@/types/dashboard';
 import type { AppScreenNavigationProp } from '@/navigation/types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+type IconColor = {
+  bg: string;
+  fg: string;
+};
 
-interface HealthReminder {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'high' | 'medium' | 'low';
-  completed: boolean;
-}
+const ICON_COLORS = {
+  red: { bg: '#fee2e2', fg: '#dc2626' } as IconColor,
+  blue: { bg: '#dbeafe', fg: '#2563eb' } as IconColor,
+  green: { bg: '#dcfce7', fg: '#16a34a' } as IconColor,
+  purple: { bg: '#f3e8ff', fg: '#9333ea' } as IconColor,
+  yellow: { bg: '#fef3c7', fg: '#ca8a04' } as IconColor,
+  gray: { bg: GRAY[100], fg: GRAY[600] } as IconColor,
+};
 
 export default function HomeScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
   const { user } = useAuth();
-  const theme = useTheme();
-  const { toastConfig, hideToast, success, error: showError } = useToast();
   const queryClient = useQueryClient();
-  const [refreshing, setRefreshing] = useState(false);
+  const { toastConfig, hideToast, success, error: showError } = useToast();
 
-  // Get dynamic theme colors
-  const primaryColor = theme.primary;
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: dashboardApi.getDashboardOverview,
+  const statsQ = useQuery({
+    queryKey: ['dashboard', 'stats'],
+    queryFn: dashboardApi.getDashboardStats,
+  });
+  const medsQ = useQuery({
+    queryKey: ['dashboard', 'medications'],
+    queryFn: dashboardApi.getTodaysMedications,
+    refetchInterval: 60_000,
+  });
+  const remindersQ = useQuery({
+    queryKey: ['dashboard', 'reminders'],
+    queryFn: dashboardApi.getHealthReminders,
+  });
+  const activitiesQ = useQuery({
+    queryKey: ['dashboard', 'activities'],
+    queryFn: () => dashboardApi.getRecentActivities(5),
   });
 
-  const completeReminderMutation = useMutation({
+  const completeReminder = useMutation({
     mutationFn: dashboardApi.completeReminder,
     onSuccess: () => {
       success('Great job! Reminder marked as complete.');
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'reminders'] });
     },
-    onError: () => {
-      showError('Unable to complete reminder. Please try again.');
-    },
+    onError: () => showError('Unable to complete reminder. Please try again.'),
   });
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
+  const refreshing =
+    statsQ.isFetching || medsQ.isFetching || remindersQ.isFetching || activitiesQ.isFetching;
 
-  if (isLoading) {
-    return <LoadingSpinner visible text="Loading dashboard..." />;
-  }
-
-  const stats = data?.stats;
-  const reminders = data?.reminders || [];
-  const firstName = user?.firstName || 'User';
-  const userInitials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U';
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
-
-  const profileProgress = stats?.profileCompleteness?.percentage || 80;
-  const isProfileComplete = profileProgress === 100;
-  const isBraceletLinked = stats?.braceletStatus?.isActive;
+  const onRefresh = useCallback(() => {
+    statsQ.refetch();
+    medsQ.refetch();
+    remindersQ.refetch();
+    activitiesQ.refetch();
+  }, [statsQ, medsQ, remindersQ, activitiesQ]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={primaryColor[500]}
-          colors={[primaryColor[500]]}
-        />
-      }
-    >
-      {/* Header Section with Gradient */}
-      <LinearGradient
-        colors={[primaryColor[600], primaryColor[500], primaryColor[400]]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing && (statsQ.isLoading || medsQ.isLoading)}
+            onRefresh={onRefresh}
+            tintColor={PRIMARY[600]}
+            colors={[PRIMARY[600]]}
+          />
+        }
       >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greeting}>{getGreeting()},</Text>
-              <Text style={styles.userName}>{firstName}!</Text>
-            </View>
-            <Pressable
-              style={styles.notificationBtn}
-              onPress={() => (navigation as any).navigate('Notifications')}
-            >
-              <Bell size={22} color="#fff" />
-              <View style={[styles.notificationDot, { borderColor: primaryColor[500] }]} />
-            </Pressable>
-          </View>
+        <Header />
 
-          {/* Profile Summary Card */}
-          <View style={styles.profileSummary}>
-            <View style={styles.avatarContainer}>
-              <LinearGradient
-                colors={['#fff', '#f0f0f0']}
-                style={styles.avatarGradient}
-              >
-                <Text style={[styles.avatarText, { color: primaryColor[600] }]}>{userInitials}</Text>
-              </LinearGradient>
-              {isProfileComplete && (
-                <View style={styles.verifiedBadge}>
-                  <CheckCircle size={14} color="#fff" fill="#10b981" />
-                </View>
-              )}
-            </View>
-            <View style={styles.profileDetails}>
-              <Text style={styles.profileName} numberOfLines={1}>
-                {user?.firstName} {user?.lastName}
-              </Text>
-              <Text style={styles.profileEmail} numberOfLines={1}>
-                {user?.email}
-              </Text>
-              <View style={styles.accountBadge}>
-                <User size={12} color="#fff" />
-                <Text style={styles.accountBadgeText} numberOfLines={1}>
-                  {user?.accountType === 'corporate' ? 'Corporate Account' :
-                   user?.accountType === 'construction' ? 'Construction Account' :
-                   user?.accountType === 'education' ? 'Education Account' :
-                   'Individual Account'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
+        <StatsGrid stats={statsQ.data} loading={statsQ.isLoading} />
 
-      {/* Stats Section */}
-      <View style={styles.statsSection}>
-        <View style={styles.statsRow}>
-          {/* Profile Status Card */}
-          <Pressable
-            style={styles.statCard}
-            onPress={() => (navigation as any).navigate('EditEmergencyProfile')}
-          >
-            <View style={[styles.statIconWrapper, { backgroundColor: '#ecfdf5' }]}>
-              {isProfileComplete ? (
-                <CircleCheck size={22} color="#10b981" />
-              ) : (
-                <TrendingUp size={22} color="#10b981" />
-              )}
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statLabel}>Profile</Text>
-              <Text style={styles.statValue}>
-                {isProfileComplete ? 'Complete' : `${profileProgress}%`}
-              </Text>
-            </View>
-            {!isProfileComplete && (
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: `${profileProgress}%` }]} />
-              </View>
-            )}
-          </Pressable>
+        <MedicationsCard
+          data={medsQ.data ?? null}
+          loading={medsQ.isLoading}
+          onViewAll={() => navigation.navigate('Medications' as never)}
+        />
 
-          {/* NFC Bracelet Card */}
-          <Pressable
-            style={styles.statCard}
-            onPress={() => (navigation as any).navigate('Bracelet')}
-          >
-            <View style={[styles.statIconWrapper, { backgroundColor: isBraceletLinked ? '#dbeafe' : '#fef3c7' }]}>
-              {isBraceletLinked ? (
-                <Link2 size={22} color="#3b82f6" />
-              ) : (
-                <Watch size={22} color="#f59e0b" />
-              )}
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statLabel}>Bracelet</Text>
-              <Text style={[styles.statValue, !isBraceletLinked && { color: '#f59e0b' }]}>
-                {isBraceletLinked ? 'Linked' : 'Not Linked'}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={GRAY[400]} />
-          </Pressable>
-        </View>
+        <QuickActions
+          onUpdateMedical={() => navigation.navigate('EditEmergencyProfile', {})}
+          onManageBracelet={() => navigation.navigate('Bracelet')}
+          onShareLocation={() =>
+            (navigation as any).navigate('Dashboard', { screen: 'Location' })
+          }
+          onAuditLogs={() => navigation.navigate('AuditLogs')}
+        />
 
-        <View style={styles.statsRow}>
-          {/* Profile Access Card */}
-          <Pressable
-            style={styles.statCard}
-            onPress={() => (navigation as any).navigate('AuditLogs')}
-          >
-            <View style={[styles.statIconWrapper, { backgroundColor: '#fef2f2' }]}>
-              <Eye size={22} color="#ef4444" />
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statLabel} numberOfLines={1}>Accesses</Text>
-              <Text style={styles.statValue}>{stats?.recentAccesses?.count || 0}</Text>
-            </View>
-            <Text style={styles.statSubLabel} numberOfLines={1}>This month</Text>
-          </Pressable>
+        <FamilyActions
+          onFamilyMembers={() => navigation.navigate('FamilyMembers')}
+          onFamilySafety={() => navigation.navigate('FamilySafety')}
+          onFamilyMap={() => navigation.navigate('FamilyMap')}
+          onSafeZones={() => navigation.navigate('SafeZones')}
+        />
 
-          {/* Subscription Card */}
-          <Pressable
-            style={styles.statCard}
-            onPress={() => (navigation as any).navigate('Subscription')}
-          >
-            <View style={[styles.statIconWrapper, { backgroundColor: '#f5f3ff' }]}>
-              <Sparkles size={22} color="#8b5cf6" />
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statLabel}>Plan</Text>
-              <Text style={styles.statValue}>{stats?.subscription?.plan || 'Free'}</Text>
-            </View>
-            {(!stats?.subscription?.plan || stats?.subscription?.plan === 'Free') && (
-              <Text style={styles.upgradeText}>Upgrade</Text>
-            )}
-          </Pressable>
-        </View>
-      </View>
+        <HealthRemindersCard
+          reminders={remindersQ.data ?? []}
+          loading={remindersQ.isLoading}
+          onComplete={(id) => completeReminder.mutate(id)}
+          completingId={completeReminder.isPending ? completeReminder.variables : undefined}
+        />
 
-      {/* Quick Actions Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickActionsScroll}
-        >
-          {/* Medical Info */}
-          <Pressable
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('EditEmergencyProfile')}
-          >
-            <LinearGradient
-              colors={[primaryColor[50], primaryColor[100]]}
-              style={styles.quickActionGradient}
-            >
-              <Heart size={28} color={primaryColor[500]} />
-            </LinearGradient>
-            <Text style={styles.quickActionTitle}>Medical Info</Text>
-            <Text style={styles.quickActionSubtitle}>Update profile</Text>
-          </Pressable>
+        <RecentActivityCard
+          activities={activitiesQ.data ?? []}
+          loading={activitiesQ.isLoading}
+          onViewAll={() => navigation.navigate('AuditLogs')}
+        />
 
-          {/* Manage Bracelet */}
-          <Pressable
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('Bracelet')}
-          >
-            <LinearGradient
-              colors={['#eff6ff', '#dbeafe']}
-              style={styles.quickActionGradient}
-            >
-              <Activity size={28} color="#3b82f6" />
-            </LinearGradient>
-            <Text style={styles.quickActionTitle}>Bracelet</Text>
-            <Text style={styles.quickActionSubtitle}>Link device</Text>
-          </Pressable>
-
-          {/* Audit Logs */}
-          <Pressable
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('AuditLogs')}
-          >
-            <LinearGradient
-              colors={['#f5f3ff', '#ede9fe']}
-              style={styles.quickActionGradient}
-            >
-              <Shield size={28} color="#8b5cf6" />
-            </LinearGradient>
-            <Text style={styles.quickActionTitle}>Audit Logs</Text>
-            <Text style={styles.quickActionSubtitle}>View access</Text>
-          </Pressable>
-
-          {/* QR Code */}
-          <Pressable
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('QRCodeGenerator')}
-          >
-            <LinearGradient
-              colors={['#ecfdf5', '#d1fae5']}
-              style={styles.quickActionGradient}
-            >
-              <Ionicons name="qr-code" size={28} color="#10b981" />
-            </LinearGradient>
-            <Text style={styles.quickActionTitle}>QR Code</Text>
-            <Text style={styles.quickActionSubtitle}>Share profile</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-
-      {/* Health Reminders Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Health Reminders</Text>
-          <Text style={[styles.sectionBadge, { backgroundColor: primaryColor[500] }]}>
-            {reminders.filter(r => !r.completed).length}
-          </Text>
-        </View>
-
-        {reminders.length === 0 ? (
-          <View style={styles.emptyReminders}>
-            <View style={styles.emptyIconWrapper}>
-              <Ionicons name="checkmark-done-circle" size={40} color="#10b981" />
-            </View>
-            <Text style={styles.emptyTitle}>All Caught Up!</Text>
-            <Text style={styles.emptySubtitle}>No pending reminders</Text>
-          </View>
-        ) : (
-          <View style={styles.remindersList}>
-            {reminders.slice(0, 3).map((reminder: HealthReminder) => (
-              <Pressable
-                key={reminder.id}
-                style={[
-                  styles.reminderCard,
-                  reminder.priority === 'high' && styles.reminderCardHigh,
-                  reminder.priority === 'medium' && styles.reminderCardMedium,
-                ]}
-                onPress={() => completeReminderMutation.mutate(reminder.id)}
-              >
-                <View style={styles.reminderIcon}>
-                  <AlertTriangle
-                    size={18}
-                    color={
-                      reminder.priority === 'high' ? '#ef4444' :
-                      reminder.priority === 'medium' ? '#f59e0b' : '#3b82f6'
-                    }
-                  />
-                </View>
-                <View style={styles.reminderContent}>
-                  <Text style={styles.reminderTitle}>{reminder.title}</Text>
-                  <Text style={styles.reminderDesc} numberOfLines={1}>
-                    {reminder.description}
-                  </Text>
-                </View>
-                <View style={styles.reminderAction}>
-                  <Ionicons name="checkmark-circle-outline" size={24} color={GRAY[400]} />
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Bottom Spacing */}
-      <View style={{ height: spacing[8] }} />
+        <View style={{ height: 24 }} />
+      </ScrollView>
 
       <Toast {...toastConfig} onDismiss={hideToast} />
-    </ScrollView>
+    </View>
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Header
+// ──────────────────────────────────────────────────────────────────────────
+
+function Header() {
+  return (
+    <View style={styles.headerWrap}>
+      <View style={styles.headerTitleRow}>
+        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerSparkle}>✨</Text>
+      </View>
+      <View style={styles.headerSubRow}>
+        <Text style={styles.headerWave}>👋</Text>
+        <Text style={styles.headerSub}>
+          Welcome back! Here&apos;s an overview of your medical profile.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Stat cards (2x2)
+// ──────────────────────────────────────────────────────────────────────────
+
+function StatsGrid({
+  stats,
+  loading,
+}: {
+  stats: DashboardStats | undefined;
+  loading: boolean;
+}) {
+  const profileStatus = stats?.profileStatus;
+  const braceletStatus = stats?.braceletStatus;
+  const profileAccess = stats?.profileAccess;
+  const subscription = stats?.subscriptionStatus;
+
+  const profileColor: IconColor =
+    profileStatus?.changeType === 'positive'
+      ? ICON_COLORS.green
+      : profileStatus?.changeType === 'negative'
+      ? ICON_COLORS.red
+      : ICON_COLORS.yellow;
+
+  const braceletColor: IconColor =
+    braceletStatus?.value === 'Linked' ? ICON_COLORS.red : ICON_COLORS.gray;
+
+  return (
+    <View style={styles.statsGrid}>
+      <StatCard
+        title="Profile Status"
+        value={loading ? 'Loading…' : profileStatus?.value ?? '—'}
+        subtitle={loading ? '' : profileStatus?.change ?? ''}
+        subtitleType={profileStatus?.changeType}
+        Icon={CheckCircle2}
+        iconColor={profileColor}
+        showAlert={!!profileStatus?.missingFields?.length}
+      />
+      <StatCard
+        title="NFC Bracelet"
+        value={loading ? 'Loading…' : braceletStatus?.value ?? '—'}
+        subtitle={loading ? '' : braceletStatus?.change ?? ''}
+        Icon={Activity}
+        iconColor={braceletColor}
+      />
+      <StatCard
+        title="Profile Access"
+        value={loading ? 'Loading…' : profileAccess?.value ?? '0'}
+        subtitle={loading ? '' : profileAccess?.change ?? ''}
+        subtitleType={profileAccess?.changeType}
+        Icon={Users}
+        iconColor={ICON_COLORS.blue}
+      />
+      <StatCard
+        title="Subscription"
+        value={loading ? 'Loading…' : subscription?.value ?? 'Free Plan'}
+        subtitle={loading ? '' : subscription?.change ?? ''}
+        Icon={Shield}
+        iconColor={ICON_COLORS.purple}
+      />
+    </View>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  subtitle,
+  subtitleType,
+  Icon,
+  iconColor,
+  showAlert,
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+  subtitleType?: 'positive' | 'neutral' | 'negative';
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  iconColor: IconColor;
+  showAlert?: boolean;
+}) {
+  const subtitleColor =
+    subtitleType === 'positive' ? '#16a34a' : GRAY[500];
+  return (
+    <View style={styles.statCard}>
+      <View style={styles.statTextCol}>
+        <Text style={styles.statTitle}>{title}</Text>
+        <Text style={styles.statValue} numberOfLines={2}>
+          {value}
+        </Text>
+        {!!subtitle && (
+          <Text style={[styles.statSubtitle, { color: subtitleColor }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        )}
+      </View>
+      <View style={styles.statIconCol}>
+        {showAlert && (
+          <View style={styles.statAlertDot}>
+            <AlertCircle size={14} color={GRAY[500]} />
+          </View>
+        )}
+        <View style={[styles.statIconTile, { backgroundColor: iconColor.bg }]}>
+          <Icon size={22} color={iconColor.fg} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Medications card
+// ──────────────────────────────────────────────────────────────────────────
+
+function MedicationsCard({
+  data,
+  loading,
+  onViewAll,
+}: {
+  data: MedicationWidgetData | null;
+  loading: boolean;
+  onViewAll: () => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderTitleRow}>
+          <Pill size={20} color={PRIMARY[600]} />
+          <Text style={styles.cardTitle}>Today&apos;s Medications</Text>
+        </View>
+        <Pressable onPress={onViewAll} style={styles.linkRow} hitSlop={8}>
+          <ArrowRight size={16} color={PRIMARY[600]} />
+          <Text style={styles.linkText}>View All</Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <View style={styles.cardLoading}>
+          <ActivityIndicator color={PRIMARY[600]} />
+          <Text style={styles.cardLoadingText}>Loading medications…</Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.medSummaryRow}>
+            <MedSummaryTile
+              value={data?.summary.total ?? 0}
+              label="Total"
+              bg={GRAY[50]}
+              fg={GRAY[900]}
+              labelColor={GRAY[500]}
+            />
+            <MedSummaryTile
+              value={data?.summary.taken ?? 0}
+              label="Taken"
+              bg="#f0fdf4"
+              fg="#16a34a"
+              labelColor="#16a34a"
+            />
+            <MedSummaryTile
+              value={data?.summary.pending ?? 0}
+              label="Pending"
+              bg="#eff6ff"
+              fg="#2563eb"
+              labelColor="#2563eb"
+            />
+            <MedSummaryTile
+              value={data?.summary.missed ?? 0}
+              label="Missed"
+              bg="#fef2f2"
+              fg="#dc2626"
+              labelColor="#dc2626"
+            />
+          </View>
+
+          <LinearGradient
+            colors={[PRIMARY[50], '#f3e8ff']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.streakBar}
+          >
+            <View style={styles.streakLeft}>
+              <Flame size={20} color="#f97316" />
+              <View>
+                <Text style={styles.streakTitle}>
+                  {data?.streak.current ?? 0} day streak
+                </Text>
+                <Text style={styles.streakSubtitle}>
+                  Best: {data?.streak.longest ?? 0} days
+                </Text>
+              </View>
+            </View>
+            <View style={styles.streakRight}>
+              <Text style={styles.streakTitle}>{data?.weeklyAdherence ?? 0}%</Text>
+              <Text style={styles.streakSubtitle}>Weekly adherence</Text>
+            </View>
+          </LinearGradient>
+        </>
+      )}
+    </View>
+  );
+}
+
+function MedSummaryTile({
+  value,
+  label,
+  bg,
+  fg,
+  labelColor,
+}: {
+  value: number;
+  label: string;
+  bg: string;
+  fg: string;
+  labelColor: string;
+}) {
+  return (
+    <View style={[styles.medSummaryTile, { backgroundColor: bg }]}>
+      <Text style={[styles.medSummaryValue, { color: fg }]}>{value}</Text>
+      <Text style={[styles.medSummaryLabel, { color: labelColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Quick Actions
+// ──────────────────────────────────────────────────────────────────────────
+
+function QuickActions({
+  onUpdateMedical,
+  onManageBracelet,
+  onShareLocation,
+  onAuditLogs,
+}: {
+  onUpdateMedical: () => void;
+  onManageBracelet: () => void;
+  onShareLocation: () => void;
+  onAuditLogs: () => void;
+}) {
+  const actions = [
+    {
+      title: 'Update Medical Info',
+      description: 'Keep your profile current',
+      Icon: Heart,
+      color: ICON_COLORS.red,
+      onPress: onUpdateMedical,
+    },
+    {
+      title: 'Manage Bracelet',
+      description: 'Link or replace your NFC device',
+      Icon: Activity,
+      color: ICON_COLORS.blue,
+      onPress: onManageBracelet,
+    },
+    {
+      title: 'Share Location',
+      description: 'Share with emergency contacts',
+      Icon: MapPin,
+      color: ICON_COLORS.green,
+      onPress: onShareLocation,
+    },
+    {
+      title: 'View Audit Logs',
+      description: 'See who accessed your profile',
+      Icon: Shield,
+      color: ICON_COLORS.purple,
+      onPress: onAuditLogs,
+    },
+  ];
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Quick Actions</Text>
+      <View style={styles.actionsGrid}>
+        {actions.map((a) => (
+          <Pressable
+            key={a.title}
+            onPress={a.onPress}
+            style={({ pressed }) => [styles.actionTile, pressed && styles.actionTilePressed]}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: a.color.bg }]}>
+              <a.Icon size={20} color={a.color.fg} />
+            </View>
+            <Text style={styles.actionTitle}>{a.title}</Text>
+            <Text style={styles.actionDescription}>{a.description}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Family Actions
+// ──────────────────────────────────────────────────────────────────────────
+
+function FamilyActions({
+  onFamilyMembers,
+  onFamilySafety,
+  onFamilyMap,
+  onSafeZones,
+}: {
+  onFamilyMembers: () => void;
+  onFamilySafety: () => void;
+  onFamilyMap: () => void;
+  onSafeZones: () => void;
+}) {
+  const actions = [
+    {
+      title: 'Family Members',
+      description: 'Manage children & caregivers',
+      Icon: Users,
+      color: ICON_COLORS.red,
+      onPress: onFamilyMembers,
+    },
+    {
+      title: 'Family Safety',
+      description: 'Real-time safety overview',
+      Icon: Eye,
+      color: ICON_COLORS.blue,
+      onPress: onFamilySafety,
+    },
+    {
+      title: 'Family Map',
+      description: 'See where family is now',
+      Icon: MapIcon,
+      color: ICON_COLORS.green,
+      onPress: onFamilyMap,
+    },
+    {
+      title: 'Safe Zones',
+      description: 'Geofence alerts',
+      Icon: Shield,
+      color: ICON_COLORS.purple,
+      onPress: onSafeZones,
+    },
+  ];
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Family</Text>
+      <View style={styles.actionsGrid}>
+        {actions.map((a) => (
+          <Pressable
+            key={a.title}
+            onPress={a.onPress}
+            style={({ pressed }) => [styles.actionTile, pressed && styles.actionTilePressed]}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: a.color.bg }]}>
+              <a.Icon size={20} color={a.color.fg} />
+            </View>
+            <Text style={styles.actionTitle}>{a.title}</Text>
+            <Text style={styles.actionDescription}>{a.description}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Health Reminders
+// ──────────────────────────────────────────────────────────────────────────
+
+function HealthRemindersCard({
+  reminders,
+  loading,
+  onComplete,
+  completingId,
+}: {
+  reminders: HealthReminder[];
+  loading: boolean;
+  onComplete: (id: string) => void;
+  completingId?: string;
+}) {
+  const visible = reminders.filter((r) => !r.completed).slice(0, 3);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Health Reminders</Text>
+      {loading ? (
+        <View style={styles.cardLoading}>
+          <ActivityIndicator color={PRIMARY[600]} />
+          <Text style={styles.cardLoadingText}>Loading reminders…</Text>
+        </View>
+      ) : visible.length === 0 ? (
+        <View style={styles.emptyState}>
+          <CheckCircle2 size={40} color="#86efac" />
+          <Text style={styles.emptyTitle}>No pending reminders</Text>
+          <Text style={styles.emptySubtitle}>All caught up! 🎉</Text>
+        </View>
+      ) : (
+        <View style={{ gap: 12 }}>
+          {visible.map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => onComplete(r.id)}
+              disabled={completingId === r.id}
+              style={[styles.reminderItem, priorityBorder(r.priority)]}
+            >
+              <View style={styles.reminderTitleRow}>
+                <Text style={styles.reminderTitle} numberOfLines={2}>
+                  {r.title}
+                </Text>
+                <PriorityBadge priority={r.priority} />
+              </View>
+              <Text style={styles.reminderDescription}>{r.description}</Text>
+              <Text style={styles.reminderHint}>
+                {completingId === r.id ? 'Marking…' : 'Click to mark as complete'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: 'high' | 'medium' | 'low' }) {
+  const map = {
+    high: { bg: '#fee2e2', fg: '#b91c1c', label: 'high' },
+    medium: { bg: '#fef9c3', fg: '#a16207', label: 'medium' },
+    low: { bg: '#dbeafe', fg: '#1d4ed8', label: 'low' },
+  } as const;
+  const c = map[priority];
+  return (
+    <View style={[styles.priorityBadge, { backgroundColor: c.bg }]}>
+      <Text style={[styles.priorityBadgeText, { color: c.fg }]}>{c.label}</Text>
+    </View>
+  );
+}
+
+function priorityBorder(priority: 'high' | 'medium' | 'low') {
+  if (priority === 'high') return { borderColor: '#fecaca' };
+  if (priority === 'medium') return { borderColor: '#fef08a' };
+  return { borderColor: GRAY[200] };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Recent Activity
+// ──────────────────────────────────────────────────────────────────────────
+
+function RecentActivityCard({
+  activities,
+  loading,
+  onViewAll,
+}: {
+  activities: RecentActivity[];
+  loading: boolean;
+  onViewAll: () => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Recent Activity</Text>
+        <Pressable onPress={onViewAll} style={styles.linkRow} hitSlop={8}>
+          <ArrowRight size={16} color={PRIMARY[600]} />
+          <Text style={styles.linkText}>View All</Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <View style={styles.cardLoading}>
+          <ActivityIndicator color={PRIMARY[600]} />
+          <Text style={styles.cardLoadingText}>Loading activities…</Text>
+        </View>
+      ) : activities.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Activity size={40} color={GRAY[300]} />
+          <Text style={styles.emptyTitle}>No recent activity yet</Text>
+          <Text style={styles.emptySubtitle}>Your activities will appear here</Text>
+        </View>
+      ) : (
+        <View>
+          {activities.map((a, idx) => (
+            <View
+              key={a.id ?? `${idx}-${a.action}`}
+              style={[styles.activityRow, idx === activities.length - 1 && styles.activityRowLast]}
+            >
+              <View
+                style={[
+                  styles.activityIconTile,
+                  { backgroundColor: activityBg(a.type) },
+                ]}
+              >
+                <Activity size={14} color={activityFg(a.type)} />
+              </View>
+              <View style={styles.activityText}>
+                <Text style={styles.activityAction} numberOfLines={1}>
+                  {a.action}
+                </Text>
+                {!!a.location && (
+                  <Text style={styles.activityLocation} numberOfLines={1}>
+                    {a.location}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.activityTime}>
+                <Clock size={12} color={GRAY[500]} />
+                <Text style={styles.activityTimeText}>{a.time}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function activityBg(type: string) {
+  if (type === 'access') return '#fee2e2';
+  if (type === 'update') return '#dbeafe';
+  return GRAY[100];
+}
+function activityFg(type: string) {
+  if (type === 'access') return '#dc2626';
+  if (type === 'update') return '#2563eb';
+  return GRAY[600];
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────────────────────────────────
+
+const CARD_RADIUS = 16;
+const CARD_PADDING = 16;
+const GUTTER = 12;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
+  root: { flex: 1, backgroundColor: GRAY[50] },
+  scrollContent: { padding: 16, gap: 16 },
+
+  // Header
+  headerWrap: { marginBottom: 4 },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: PRIMARY[700],
+    letterSpacing: -0.5,
   },
-  contentContainer: {
-    paddingBottom: spacing[4],
-  },
-  // Header Styles
-  headerGradient: {
-    paddingTop: 60,
-    paddingBottom: spacing[6],
-    paddingHorizontal: spacing[5],
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  headerContent: {
-    // Container for header items
-  },
-  headerTop: {
+  headerSparkle: { fontSize: 22, marginBottom: 4 },
+  headerSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  headerWave: { fontSize: 16 },
+  headerSub: { flex: 1, fontSize: 14, color: GRAY[600], lineHeight: 20 },
+
+  // Stat grid
+  statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing[5],
-  },
-  greetingContainer: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '500',
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 2,
-  },
-  notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#fbbf24',
-    borderWidth: 2,
-  },
-  // Profile Summary
-  profileSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 20,
-    padding: spacing[4],
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatarGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 2,
-  },
-  profileDetails: {
-    flex: 1,
-    marginLeft: spacing[4],
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
-  },
-  accountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginTop: spacing[2],
-    gap: 4,
-  },
-  accountBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  // Stats Section
-  statsSection: {
-    paddingHorizontal: spacing[4],
-    marginTop: -spacing[4],
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing[3],
-    marginBottom: spacing[3],
+    flexWrap: 'wrap',
+    gap: GUTTER,
   },
   statCard: {
-    flex: 1,
+    flexBasis: '48%',
+    flexGrow: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: spacing[4],
+    borderRadius: CARD_RADIUS,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: GRAY[100],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 6,
+    elevation: 1,
+    minHeight: 120,
   },
-  statIconWrapper: {
+  statTextCol: { flex: 1, paddingRight: 8 },
+  statTitle: { fontSize: 12, color: GRAY[600], fontWeight: '500', marginBottom: 4 },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: GRAY[900],
+    lineHeight: 24,
+    letterSpacing: -0.3,
+  },
+  statSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  statIconCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
+  statIconTile: {
     width: 44,
     height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  statContent: {
-    flex: 1,
-    marginLeft: spacing[3],
-  },
-  statLabel: {
-    fontSize: 12,
-    color: GRAY[500],
-    fontWeight: '500',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-    marginTop: 2,
-  },
-  statSubLabel: {
-    fontSize: 11,
-    color: GRAY[400],
-  },
-  progressBarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: GRAY[100],
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#10b981',
-    borderRadius: 3,
-  },
-  upgradeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8b5cf6',
-  },
-  // Section Styles
-  section: {
-    marginTop: spacing[6],
-    paddingHorizontal: spacing[4],
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[4],
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-    flex: 1,
-  },
-  sectionBadge: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: 10,
-    overflow: 'hidden',
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  // Quick Actions
-  quickActionsScroll: {
-    paddingRight: spacing[4],
-    gap: spacing[3],
-  },
-  quickActionCard: {
-    width: 100,
-    alignItems: 'center',
-  },
-  quickActionGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing[2],
-  },
-  quickActionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    textAlign: 'center',
-  },
-  quickActionSubtitle: {
-    fontSize: 11,
-    color: GRAY[500],
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  // Reminders
-  emptyReminders: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: spacing[8],
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  emptyIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#ecfdf5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing[3],
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: GRAY[500],
-    marginTop: 4,
-  },
-  remindersList: {
-    gap: spacing[3],
-  },
-  reminderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: spacing[4],
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 1,
   },
-  reminderCardHigh: {
-    borderLeftColor: '#ef4444',
-    backgroundColor: '#fffbfb',
+  statAlertDot: {
+    marginBottom: 4,
+    padding: 2,
   },
-  reminderCardMedium: {
-    borderLeftColor: '#f59e0b',
-    backgroundColor: '#fffefb',
+
+  // Card shell
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    padding: CARD_PADDING,
+    borderWidth: 1,
+    borderColor: GRAY[100],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+    gap: 12,
   },
-  reminderIcon: {
-    width: 36,
-    height: 36,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: GRAY[900], letterSpacing: -0.2 },
+  cardLoading: { paddingVertical: 24, alignItems: 'center', gap: 8 },
+  cardLoadingText: { color: GRAY[600], fontSize: 13 },
+
+  linkRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
+  linkText: { color: PRIMARY[600], fontSize: 13, fontWeight: '600' },
+
+  // Medications
+  medSummaryRow: { flexDirection: 'row', gap: 8 },
+  medSummaryTile: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  medSummaryValue: { fontSize: 18, fontWeight: '800' },
+  medSummaryLabel: { fontSize: 11, marginTop: 2, fontWeight: '500' },
+  streakBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+  },
+  streakLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  streakRight: { alignItems: 'flex-end' },
+  streakTitle: { fontSize: 13, fontWeight: '700', color: GRAY[900] },
+  streakSubtitle: { fontSize: 11, color: GRAY[500], marginTop: 2 },
+
+  // Quick actions
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: GUTTER },
+  actionTile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    borderWidth: 1.5,
+    borderColor: GRAY[200],
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#fff',
+    gap: 8,
+  },
+  actionTilePressed: {
+    borderColor: PRIMARY[400],
+    backgroundColor: PRIMARY[50],
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    backgroundColor: GRAY[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  actionTitle: { fontSize: 14, fontWeight: '700', color: GRAY[900] },
+  actionDescription: { fontSize: 12, color: GRAY[600], lineHeight: 16 },
+
+  // Reminders
+  reminderItem: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: '#fafafa',
+    gap: 4,
+  },
+  reminderTitleRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  reminderTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: GRAY[900] },
+  reminderDescription: { fontSize: 12, color: GRAY[600], lineHeight: 16 },
+  reminderHint: { fontSize: 11, color: GRAY[400], marginTop: 4 },
+  priorityBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  priorityBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'lowercase' },
+
+  emptyState: { alignItems: 'center', paddingVertical: 24, gap: 4 },
+  emptyTitle: { fontSize: 13, color: GRAY[500], marginTop: 8 },
+  emptySubtitle: { fontSize: 12, color: GRAY[400] },
+
+  // Activity
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: GRAY[200],
+    gap: 12,
+  },
+  activityRowLast: { borderBottomWidth: 0 },
+  activityIconTile: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reminderContent: {
-    flex: 1,
-    marginLeft: spacing[3],
-  },
-  reminderTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-  },
-  reminderDesc: {
-    fontSize: 12,
-    color: GRAY[500],
-    marginTop: 2,
-  },
-  reminderAction: {
-    marginLeft: spacing[2],
-  },
+  activityText: { flex: 1 },
+  activityAction: { fontSize: 13, fontWeight: '600', color: GRAY[900] },
+  activityLocation: { fontSize: 11, color: GRAY[600], marginTop: 2 },
+  activityTime: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  activityTimeText: { fontSize: 11, color: GRAY[500] },
 });

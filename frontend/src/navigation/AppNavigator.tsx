@@ -17,7 +17,14 @@ import { isOrganizationAccount } from '@/config/dashboardConfig';
 // Import app screens (placeholders for now)
 // Emergency Profile
 import EmergencyProfileScreen from '@/screens/emergency/EmergencyProfileScreen';
-import EditEmergencyProfileScreen from '@/screens/emergency/EditEmergencyProfileScreen';
+import MedicalProfileScreen from '@/screens/medical/MedicalProfileScreen';
+
+// Family & Safety
+import SafeZonesScreen from '@/screens/family/SafeZonesScreen';
+import FamilySafetyScreen from '@/screens/family/FamilySafetyScreen';
+import FamilyMapScreen from '@/screens/family/FamilyMapScreen';
+import FamilyMembersScreen from '@/screens/family/FamilyMembersScreen';
+import InviteCaregiverScreen from '@/screens/family/InviteCaregiverScreen';
 import ViewEmergencyProfileScreen from '@/screens/emergency/ViewEmergencyProfileScreen';
 
 // Medical Information
@@ -191,10 +198,37 @@ export default function AppNavigator() {
 
       <Stack.Screen
         name="EditEmergencyProfile"
-        component={EditEmergencyProfileScreen}
+        component={MedicalProfileScreen}
         options={{
-          title: 'Edit Profile',
+          title: 'Medical Profile',
+          gestureEnabled: false,
         }}
+      />
+
+      <Stack.Screen
+        name="SafeZones"
+        component={SafeZonesScreen}
+        options={{ title: 'Safe Zones' }}
+      />
+      <Stack.Screen
+        name="FamilySafety"
+        component={FamilySafetyScreen}
+        options={{ title: 'Family Safety' }}
+      />
+      <Stack.Screen
+        name="FamilyMap"
+        component={FamilyMapScreen}
+        options={{ title: 'Family Map' }}
+      />
+      <Stack.Screen
+        name="FamilyMembers"
+        component={FamilyMembersScreen}
+        options={{ title: 'Family Members' }}
+      />
+      <Stack.Screen
+        name="InviteCaregiver"
+        component={InviteCaregiverScreen}
+        options={{ title: 'Invite Caregiver' }}
       />
 
       <Stack.Screen

@@ -1,98 +1,74 @@
 /**
- * Bracelet Screen
- * NFC bracelet management and status
+ * NFC Bracelet Screen — mirrors the web's /dashboard/bracelet page 1:1.
+ *
+ * Companion-app note: the mobile app supports NFC natively, so we skip the
+ * web's "NFC Not Supported" notice. The Link button routes to NFCRegister,
+ * which uses react-native-nfc-manager to scan and POST /api/bracelet/link.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
   Alert,
-  Linking,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { format, formatDistanceToNow } from 'date-fns';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Link2,
+  QrCode,
+  Shield,
+  Smartphone,
+  Unlink,
+} from 'lucide-react-native';
+
+import { braceletApi } from '@/api/bracelet';
+import { PRIMARY, GRAY } from '@/constants/colors';
 import type { AppScreenNavigationProp } from '@/navigation/types';
 
-import {
-  Button,
-  Card,
-  Badge,
-  Toast,
-  useToast,
-  LoadingSpinner,
-} from '@/components/ui';
-import { Bracelet3DView } from '@/components/Bracelet3DView';
-import { braceletApi } from '@/api/bracelet';
-import type { BraceletStatus } from '@/types/bracelet';
-import { PRIMARY, SEMANTIC, STATUS, MEDICAL_COLORS } from '@/constants/colors';
-import { spacing } from '@/theme/theme';
+function formatDate(d: string | undefined | null): string {
+  if (!d) return 'Never';
+  try {
+    return new Date(d).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return d;
+  }
+}
 
 export default function BraceletScreen() {
   const navigation = useNavigation<AppScreenNavigationProp>();
-  const { toastConfig, hideToast, success, error: showError } = useToast();
   const queryClient = useQueryClient();
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualNfcId, setManualNfcId] = useState('');
 
-  // Fetch bracelet status
   const { data: bracelet, isLoading } = useQuery({
-    queryKey: ['bracelet'],
+    queryKey: ['bracelet', 'status'],
     queryFn: braceletApi.getBraceletStatus,
-    placeholderData: getMockBraceletData(),
   });
 
-  // Unlink mutation
   const unlinkMutation = useMutation({
     mutationFn: braceletApi.unlinkBracelet,
     onSuccess: () => {
-      success('Your bracelet has been unlinked successfully.');
       queryClient.invalidateQueries({ queryKey: ['bracelet'] });
     },
     onError: () => {
-      showError('Unable to unlink bracelet. Please try again.');
-    },
-  });
-
-  // Update status mutation
-  const updateStatusMutation = useMutation({
-    mutationFn: braceletApi.updateBraceletStatus,
-    onSuccess: () => {
-      success('Bracelet status has been updated.');
-      queryClient.invalidateQueries({ queryKey: ['bracelet'] });
-    },
-    onError: () => {
-      showError('Unable to update bracelet status. Please try again.');
-    },
-  });
-
-  // Link bracelet mutation
-  const linkMutation = useMutation({
-    mutationFn: (nfcId: string) => braceletApi.linkBracelet({ nfcId }),
-    onSuccess: () => {
-      success('Your bracelet is now linked to your profile!');
-      queryClient.invalidateQueries({ queryKey: ['bracelet'] });
-      setShowManualEntry(false);
-      setManualNfcId('');
-    },
-    onError: (err: any) => {
-      showError(err.message || 'Unable to link bracelet. Please check the NFC ID and try again.');
+      Alert.alert('Couldn’t unlink', 'Please try again.');
     },
   });
 
   const handleUnlink = () => {
     Alert.alert(
-      'Unlink Bracelet',
-      'Are you sure you want to unlink this bracelet? Your emergency profile will no longer be accessible via this NFC tag.',
+      'Unlink bracelet?',
+      'Your medical profile will not be accessible via NFC until you link a new bracelet.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -100,665 +76,510 @@ export default function BraceletScreen() {
           style: 'destructive',
           onPress: () => unlinkMutation.mutate(),
         },
-      ]
+      ],
     );
   };
 
-  const handleStatusChange = (status: BraceletStatus) => {
-    if (status === 'lost') {
-      Alert.alert(
-        'Report Lost',
-        'Marking your bracelet as lost will deactivate the emergency profile link. You can reactivate it later if you find it.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Report Lost',
-            style: 'destructive',
-            onPress: () => updateStatusMutation.mutate(status),
-          },
-        ]
-      );
-    } else {
-      updateStatusMutation.mutate(status);
-    }
-  };
+  const isLinked = !!bracelet;
 
-  const handleTestProfile = () => {
-    if (bracelet?.emergencyUrl) {
-      Linking.openURL(bracelet.emergencyUrl);
-      success('Opening your emergency profile in browser...');
-    }
-  };
-
-  const handleScanNFC = () => {
-    navigation.navigate('NFCScanner');
-  };
-
-  const handleManualLink = () => {
-    const trimmedId = manualNfcId.trim();
-    if (!trimmedId) {
-      Alert.alert('Error', 'Please enter a valid NFC ID');
-      return;
-    }
-    if (trimmedId.length < 4) {
-      Alert.alert('Error', 'NFC ID must be at least 4 characters');
-      return;
-    }
-    linkMutation.mutate(trimmedId);
-  };
-
-  const handleViewQR = () => {
-    navigation.navigate('QRCodeGenerator');
-  };
-
-  const getStatusColor = (status: BraceletStatus) => {
-    switch (status) {
-      case 'active':
-        return MEDICAL_COLORS.green.dark;
-      case 'inactive':
-        return SEMANTIC.text.tertiary;
-      case 'lost':
-        return STATUS.error.main;
-    }
-  };
-
-  const getStatusIcon = (status: BraceletStatus) => {
-    switch (status) {
-      case 'active':
-        return 'checkmark-circle';
-      case 'inactive':
-        return 'pause-circle';
-      case 'lost':
-        return 'alert-circle';
-    }
-  };
-
-  if (isLoading) {
-    return <LoadingSpinner visible text="Loading bracelet info..." />;
-  }
-
-  // Unlinked State
-  if (!bracelet) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.emptyStateContainer}>
-          {/* Illustration */}
-          <View style={styles.illustrationContainer}>
-            <Ionicons name="watch" size={120} color={PRIMARY[200]} />
-          </View>
-
-          {/* Header */}
-          <Text style={styles.emptyTitle}>No Bracelet Linked</Text>
-          <Text style={styles.emptySubtitle}>
-            Link your NFC bracelet to enable instant access to your emergency profile
-          </Text>
-
-          {/* Benefits */}
-          <Card variant="outline" padding="lg" style={styles.benefitsCard}>
-            <Text style={styles.benefitsTitle}>Why link a bracelet?</Text>
-            <View style={styles.benefitsList}>
-              <View style={styles.benefitItem}>
-                <Ionicons name="flash" size={20} color={PRIMARY[600]} />
-                <Text style={styles.benefitText}>
-                  Instant access to your medical information
-                </Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="shield-checkmark" size={20} color={PRIMARY[600]} />
-                <Text style={styles.benefitText}>
-                  Emergency responders can help you faster
-                </Text>
-              </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="people" size={20} color={PRIMARY[600]} />
-                <Text style={styles.benefitText}>
-                  Contact your emergency contacts immediately
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          {/* Actions */}
-          <Button
-            fullWidth
-            onPress={handleScanNFC}
-            icon={<Ionicons name="scan" size={20} color="#ffffff" />}
-            style={styles.primaryButton}
-          >
-            Scan NFC Bracelet
-          </Button>
-
-          <Button
-            variant="outline"
-            fullWidth
-            onPress={() => setShowManualEntry(true)}
-            style={styles.secondaryButton}
-          >
-            Enter NFC ID Manually
-          </Button>
-
-          {/* Instructions */}
-          <Card variant="elevated" padding="md" style={styles.instructionsCard}>
-            <Text style={styles.instructionsTitle}>How to link:</Text>
-            <Text style={styles.instructionsText}>
-              {"1. Tap \"Scan NFC Bracelet\" above\n2. Hold your phone near the bracelet\n3. Wait for confirmation\n4. Your bracelet is now linked!"}
-            </Text>
-          </Card>
-        </View>
-
-        {/* Manual Entry Modal */}
-        <Modal
-          visible={showManualEntry}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setShowManualEntry(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalOverlay}
-          >
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => setShowManualEntry(false)}
-            />
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Enter NFC ID Manually</Text>
-                <Pressable
-                  onPress={() => setShowManualEntry(false)}
-                  style={styles.modalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color={SEMANTIC.text.secondary} />
-                </Pressable>
-              </View>
-
-              <Text style={styles.modalDescription}>
-                {"Enter the NFC ID printed on your bracelet or packaging. It usually looks like \"NFC-XXXX-XXXX\"."}
-              </Text>
-
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g., NFC-MG-2024-001234"
-                placeholderTextColor={SEMANTIC.text.tertiary}
-                value={manualNfcId}
-                onChangeText={setManualNfcId}
-                autoCapitalize="characters"
-                autoCorrect={false}
-              />
-
-              <View style={styles.modalButtons}>
-                <Button
-                  variant="outline"
-                  onPress={() => {
-                    setShowManualEntry(false);
-                    setManualNfcId('');
-                  }}
-                  style={styles.modalButton}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onPress={handleManualLink}
-                  loading={linkMutation.isPending}
-                  style={styles.modalButton}
-                >
-                  Link Bracelet
-                </Button>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
-        <Toast {...toastConfig} onDismiss={hideToast} />
-      </ScrollView>
-    );
-  }
-
-  // Linked State
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* 3D Bracelet Viewer */}
-      <Card variant="elevated" padding="lg" style={styles.section}>
-        <Text style={styles.sectionTitle}>3D Bracelet Model</Text>
-        <Text style={styles.sectionSubtitle}>
-          Interactive visualization of your NFC bracelet
-        </Text>
-        <View style={styles.viewer3DContainer}>
-          <Bracelet3DView
-            nfcId={bracelet.nfcId}
-            status={bracelet.status || 'active'}
-            autoRotate={true}
-          />
-        </View>
-      </Card>
-
-      {/* Status Card */}
-      <Card variant="elevated" padding="lg" style={styles.section}>
-        <View style={styles.statusHeader}>
-          <View style={styles.statusInfo}>
-            <View style={styles.statusBadgeContainer}>
-              <Ionicons
-                name={getStatusIcon(bracelet.status || 'active')}
-                size={24}
-                color={getStatusColor(bracelet.status || 'active')}
-              />
-              <Text
-                style={[styles.statusText, { color: getStatusColor(bracelet.status || 'active') }]}
-              >
-                {(bracelet.status || 'active').toUpperCase()}
-              </Text>
-            </View>
-            <Text style={styles.statusLabel}>Bracelet Status</Text>
-          </View>
-          <Ionicons name="watch" size={48} color={PRIMARY[600]} />
-        </View>
-
-        {/* Status Actions */}
-        {(bracelet.status || 'active') === 'lost' ? (
-          <Button
-            variant="outline"
-            fullWidth
-            onPress={() => handleStatusChange('active')}
-            style={styles.statusButton}
-          >
-            Mark as Found
-          </Button>
-        ) : (
-          <View style={styles.statusButtons}>
-            {(bracelet.status || 'active') === 'active' && (
-              <Button
-                variant="outline"
-                onPress={() => handleStatusChange('inactive')}
-                style={styles.halfButton}
-              >
-                Deactivate
-              </Button>
-            )}
-            {(bracelet.status || 'active') === 'inactive' && (
-              <Button
-                onPress={() => handleStatusChange('active')}
-                style={styles.halfButton}
-              >
-                Activate
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onPress={() => handleStatusChange('lost')}
-              style={styles.halfButton}
-            >
-              Report Lost
-            </Button>
-          </View>
-        )}
-      </Card>
-
-      {/* Bracelet Info */}
-      <Card variant="elevated" padding="lg" style={styles.section}>
-        <Text style={styles.sectionTitle}>Bracelet Information</Text>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>NFC ID:</Text>
-          <Text style={styles.infoValue}>{bracelet.nfcId}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Linked Date:</Text>
-          <Text style={styles.infoValue}>
-            {format(new Date(bracelet.linkedDate), 'MMM d, yyyy')}
-          </Text>
-        </View>
-
-        {bracelet.lastAccessed && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Last Accessed:</Text>
-            <Text style={styles.infoValue}>
-              {formatDistanceToNow(new Date(bracelet.lastAccessed), {
-                addSuffix: true,
-              })}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Total Accesses:</Text>
-          <Badge variant="primary">{bracelet.accessCount}</Badge>
-        </View>
-      </Card>
-
-      {/* QR Code Section */}
-      <Card variant="elevated" padding="lg" style={styles.section}>
-        <View style={styles.qrHeader}>
-          <Text style={styles.sectionTitle}>Emergency QR Code</Text>
-          <Ionicons name="qr-code" size={32} color={PRIMARY[600]} />
-        </View>
-        <Text style={styles.qrDescription}>
-          Share or print this QR code for quick access to your emergency profile
-        </Text>
-
-        <Button
-          variant="outline"
-          fullWidth
-          onPress={handleViewQR}
-          icon={<Ionicons name="qr-code-outline" size={20} color={PRIMARY[600]} />}
-        >
-          View QR Code
-        </Button>
-      </Card>
-
-      {/* Quick Actions */}
-      <View style={styles.actionsGrid}>
-        <Pressable style={styles.actionCard} onPress={handleTestProfile}>
-          <View style={[styles.actionIcon, { backgroundColor: MEDICAL_COLORS.blue.light }]}>
-            <Ionicons name="eye" size={24} color={MEDICAL_COLORS.blue.dark} />
-          </View>
-          <Text style={styles.actionText}>Test Profile</Text>
-        </Pressable>
-
-        <Pressable style={styles.actionCard} onPress={handleScanNFC}>
-          <View
-            style={[styles.actionIcon, { backgroundColor: MEDICAL_COLORS.purple.light }]}
-          >
-            <Ionicons name="scan" size={24} color={MEDICAL_COLORS.purple.dark} />
-          </View>
-          <Text style={styles.actionText}>Re-scan</Text>
-        </Pressable>
-
-        <Pressable style={styles.actionCard} onPress={handleViewQR}>
-          <View
-            style={[styles.actionIcon, { backgroundColor: MEDICAL_COLORS.green.light }]}
-          >
-            <Ionicons name="download" size={24} color={MEDICAL_COLORS.green.dark} />
-          </View>
-          <Text style={styles.actionText}>Download QR</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionCard}
-          onPress={() => navigation.navigate('ScanHistory')}
-        >
-          <View
-            style={[styles.actionIcon, { backgroundColor: MEDICAL_COLORS.yellow.light }]}
-          >
-            <Ionicons name="time" size={24} color={MEDICAL_COLORS.yellow.dark} />
-          </View>
-          <Text style={styles.actionText}>Access History</Text>
-        </Pressable>
-      </View>
-
-      {/* Unlink Button */}
-      <Button
-        variant="outline"
-        fullWidth
-        onPress={handleUnlink}
-        loading={unlinkMutation.isPending}
-        style={styles.unlinkButton}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        Unlink Bracelet
-      </Button>
+        <Header />
 
-      <Toast {...toastConfig} onDismiss={hideToast} />
-    </ScrollView>
+        {isLoading ? (
+          <View style={styles.cardLoading}>
+            <ActivityIndicator color={PRIMARY[600]} />
+            <Text style={styles.cardLoadingText}>Loading bracelet status…</Text>
+          </View>
+        ) : (
+          <>
+            <StatusCard
+              bracelet={bracelet ?? null}
+              onLink={() => navigation.navigate('NFCRegister')}
+              onUnlink={handleUnlink}
+              unlinking={unlinkMutation.isPending}
+            />
+
+            {isLinked && bracelet && (
+              <>
+                <QuickActions
+                  onTest={() => navigation.navigate('NFCScanner')}
+                  onReplace={() => navigation.navigate('NFCRegister')}
+                  onQR={() =>
+                    navigation.navigate('QRCodeGenerator', {
+                      profileId: bracelet.id,
+                    })
+                  }
+                />
+                <HowItWorks />
+                <SecurityFeatures />
+              </>
+            )}
+          </>
+        )}
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    </View>
   );
 }
 
-// Mock data for development
-function getMockBraceletData() {
-  return {
-    id: 'bracelet-1',
-    nfcId: 'NFC-MG-2024-001234',
-    userId: 'user-1',
-    status: 'active' as const,
-    linkedDate: '2024-01-15T10:30:00.000Z',
-    lastAccessed: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    accessCount: 12,
-    deviceInfo: {
-      model: 'iPhone 15 Pro',
-      os: 'iOS 17.2',
-      location: 'San Francisco, CA',
-    },
-    emergencyUrl: 'https://medguard.com/emergency/profile-123',
-    qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?data=profile-123',
-    createdAt: '2024-01-15T10:30:00.000Z',
-    updatedAt: new Date().toISOString(),
-  };
+// ──────────────────────────────────────────────────────────────────────────
+// Header
+// ──────────────────────────────────────────────────────────────────────────
+
+function Header() {
+  return (
+    <View>
+      <Text style={styles.headerTitle}>NFC Bracelet</Text>
+      <Text style={styles.headerSub}>
+        Manage your NFC-enabled medical bracelet and emergency access settings.
+      </Text>
+    </View>
+  );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Status card
+// ──────────────────────────────────────────────────────────────────────────
+
+interface BraceletData {
+  id: string;
+  status: string;
+  linkedDate: string;
+  lastAccessed?: string;
+  accessCount: number;
+}
+
+function StatusCard({
+  bracelet,
+  onLink,
+  onUnlink,
+  unlinking,
+}: {
+  bracelet: BraceletData | null;
+  onLink: () => void;
+  onUnlink: () => void;
+  unlinking: boolean;
+}) {
+  const linked = !!bracelet;
+
+  return (
+    <View style={[styles.card, linked && styles.cardActive]}>
+      <View style={styles.statusHeader}>
+        <View style={styles.statusHeaderLeft}>
+          <View
+            style={[
+              styles.statusIconTile,
+              { backgroundColor: linked ? PRIMARY[600] : GRAY[400] },
+            ]}
+          >
+            <Activity size={28} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.cardTitle}>Bracelet Status</Text>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: linked ? '#dcfce7' : '#fef9c3',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  { color: linked ? '#166534' : '#a16207' },
+                ]}
+              >
+                {linked ? 'Active' : 'Not Linked'}
+              </Text>
+            </View>
+          </View>
+        </View>
+        {linked && (
+          <Pressable
+            disabled={unlinking}
+            onPress={onUnlink}
+            style={({ pressed }) => [
+              styles.unlinkBtn,
+              pressed && { opacity: 0.6 },
+              unlinking && { opacity: 0.4 },
+            ]}
+          >
+            {unlinking ? (
+              <ActivityIndicator size="small" color={PRIMARY[600]} />
+            ) : (
+              <Unlink size={16} color={PRIMARY[600]} />
+            )}
+            <Text style={styles.unlinkBtnText}>
+              {unlinking ? 'Unlinking…' : 'Unlink'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+
+      {linked && bracelet ? (
+        <View style={styles.metaGrid}>
+          <Meta label="Bracelet ID" value={bracelet.id} mono />
+          <Meta label="Status" value={bracelet.status} capitalize />
+          <Meta label="Linked Date" value={formatDate(bracelet.linkedDate)} />
+          <Meta
+            label="Last Accessed"
+            value={formatDate(bracelet.lastAccessed)}
+          />
+          <Meta
+            label="Total Accesses"
+            value={`${bracelet.accessCount ?? 0} times`}
+          />
+        </View>
+      ) : (
+        <View style={styles.unlinkedBlock}>
+          <AlertTriangle size={48} color="#eab308" />
+          <Text style={styles.unlinkedTitle}>
+            No bracelet linked to your account
+          </Text>
+          <Pressable onPress={onLink} style={styles.primaryBtn}>
+            <Link2 size={16} color="#fff" />
+            <Text style={styles.primaryBtnText}>Link Bracelet via NFC</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Meta({
+  label,
+  value,
+  mono,
+  capitalize,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  capitalize?: boolean;
+}) {
+  return (
+    <View style={styles.metaItem}>
+      <Text style={styles.metaLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.metaValue,
+          mono && styles.metaValueMono,
+          capitalize && { textTransform: 'capitalize' },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Quick Actions (only when linked)
+// ──────────────────────────────────────────────────────────────────────────
+
+function QuickActions({
+  onTest,
+  onReplace,
+  onQR,
+}: {
+  onTest: () => void;
+  onReplace: () => void;
+  onQR: () => void;
+}) {
+  const items = [
+    {
+      title: 'Test Bracelet',
+      description: 'Verify NFC functionality',
+      Icon: Smartphone,
+      color: { bg: '#dbeafe', fg: '#2563eb' },
+      onPress: onTest,
+    },
+    {
+      title: 'Replace Bracelet',
+      description: 'Link a new device',
+      Icon: Link2,
+      color: { bg: '#fee2e2', fg: PRIMARY[600] },
+      onPress: onReplace,
+    },
+    {
+      title: 'QR Code',
+      description: 'Generate & download',
+      Icon: QrCode,
+      color: { bg: '#f3e8ff', fg: '#9333ea' },
+      onPress: onQR,
+    },
+  ];
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Quick Actions</Text>
+      <View style={styles.actionGrid}>
+        {items.map((a) => (
+          <Pressable
+            key={a.title}
+            onPress={a.onPress}
+            style={({ pressed }) => [
+              styles.actionTile,
+              pressed && { borderColor: PRIMARY[400], backgroundColor: PRIMARY[50] },
+            ]}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: a.color.bg }]}>
+              <a.Icon size={22} color={a.color.fg} />
+            </View>
+            <Text style={styles.actionTitle}>{a.title}</Text>
+            <Text style={styles.actionDesc}>{a.description}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// How It Works
+// ──────────────────────────────────────────────────────────────────────────
+
+function HowItWorks() {
+  const steps = [
+    {
+      title: 'Tap to Access',
+      text:
+        'Emergency responders tap your bracelet with their smartphone to instantly access your medical profile.',
+    },
+    {
+      title: 'Secure Access',
+      text:
+        'The bracelet opens a secure webpage showing your critical medical information — no app required.',
+    },
+    {
+      title: 'Audit Trail',
+      text:
+        'Every access is logged with timestamp and location for your security and peace of mind.',
+    },
+  ];
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>How Your NFC Bracelet Works</Text>
+      <View style={{ gap: 14 }}>
+        {steps.map((s, i) => (
+          <View key={s.title} style={styles.stepRow}>
+            <View style={styles.stepCircle}>
+              <Text style={styles.stepNumber}>{i + 1}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stepTitle}>{s.title}</Text>
+              <Text style={styles.stepText}>{s.text}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Security features
+// ──────────────────────────────────────────────────────────────────────────
+
+function SecurityFeatures() {
+  const features = [
+    {
+      title: 'Encrypted Data',
+      text: 'All information is encrypted at rest and in transit',
+    },
+    {
+      title: 'No Personal Data on Device',
+      text: 'The bracelet only contains a unique ID',
+    },
+    {
+      title: 'Audit Logging',
+      text: 'Every access is tracked and logged',
+    },
+    {
+      title: 'PIPEDA Compliant',
+      text: 'Meets Canadian privacy standards',
+    },
+  ];
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeaderRow}>
+        <Shield size={20} color={PRIMARY[600]} />
+        <Text style={styles.cardTitle}>Security Features</Text>
+      </View>
+      <View style={styles.securityGrid}>
+        {features.map((f) => (
+          <View key={f.title} style={styles.securityItem}>
+            <CheckCircle2 size={18} color="#16a34a" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.securityTitle}>{f.title}</Text>
+              <Text style={styles.securityText}>{f.text}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Styles
+// ──────────────────────────────────────────────────────────────────────────
+
+const CARD_RADIUS = 16;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SEMANTIC.background.default,
+  root: { flex: 1, backgroundColor: GRAY[50] },
+  scrollContent: { padding: 16, gap: 14 },
+
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: GRAY[900],
+    letterSpacing: -0.5,
   },
-  contentContainer: {
-    padding: spacing[4],
-    paddingBottom: spacing[8],
-  },
-  section: {
-    marginBottom: spacing[4],
-  },
-  emptyStateContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing[8],
-  },
-  illustrationContainer: {
-    marginBottom: spacing[6],
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[2],
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[6],
-    paddingHorizontal: spacing[6],
-  },
-  benefitsCard: {
-    width: '100%',
-    marginBottom: spacing[6],
-  },
-  benefitsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[3],
-  },
-  benefitsList: {
-    gap: spacing[3],
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing[3],
-  },
-  benefitText: {
-    flex: 1,
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-    lineHeight: 20,
-  },
-  primaryButton: {
-    marginBottom: spacing[3],
-  },
-  secondaryButton: {
-    marginBottom: spacing[6],
-  },
-  instructionsCard: {
-    width: '100%',
-  },
-  instructionsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[2],
-  },
-  instructionsText: {
+  headerSub: {
+    marginTop: 6,
     fontSize: 13,
-    color: SEMANTIC.text.secondary,
-    lineHeight: 20,
+    color: GRAY[600],
+    lineHeight: 18,
   },
+
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: GRAY[100],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+    gap: 14,
+  },
+  cardActive: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#fecaca',
+  },
+  cardLoading: { paddingVertical: 24, alignItems: 'center', gap: 8 },
+  cardLoadingText: { color: GRAY[600], fontSize: 13 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: GRAY[900], letterSpacing: -0.2 },
+  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
   statusHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[4],
   },
-  statusInfo: {
+  statusHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
   },
-  statusBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    marginBottom: spacing[2],
-  },
-  statusText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statusLabel: {
-    fontSize: 13,
-    color: SEMANTIC.text.secondary,
-  },
-  statusButtons: {
-    flexDirection: 'row',
-    gap: spacing[3],
-  },
-  halfButton: {
-    flex: 1,
-  },
-  statusButton: {
-    marginTop: spacing[3],
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-    marginBottom: spacing[4],
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: SEMANTIC.text.secondary,
-    marginBottom: spacing[4],
-  },
-  viewer3DContainer: {
-    marginTop: spacing[2],
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-    borderBottomWidth: 1,
-    borderBottomColor: SEMANTIC.border.default,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: SEMANTIC.text.primary,
-  },
-  qrHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[2],
-  },
-  qrDescription: {
-    fontSize: 13,
-    color: SEMANTIC.text.secondary,
-    marginBottom: spacing[4],
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -spacing[2],
-    marginBottom: spacing[4],
-  },
-  actionCard: {
-    width: '50%',
-    padding: spacing[2],
-  },
-  actionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  statusIconTile: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[2],
-    alignSelf: 'center',
   },
-  actionText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: SEMANTIC.text.primary,
-    textAlign: 'center',
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginTop: 4,
   },
-  unlinkButton: {
-    borderColor: STATUS.error,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: spacing[6],
-    paddingBottom: spacing[8],
-  },
-  modalHeader: {
+  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  unlinkBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[4],
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: SEMANTIC.text.primary,
-  },
-  modalCloseButton: {
-    padding: spacing[2],
-    marginRight: -spacing[2],
-  },
-  modalDescription: {
-    fontSize: 14,
-    color: SEMANTIC.text.secondary,
-    lineHeight: 20,
-    marginBottom: spacing[4],
-  },
-  modalInput: {
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: SEMANTIC.border.default,
-    borderRadius: 12,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
-    fontSize: 16,
-    color: SEMANTIC.text.primary,
-    backgroundColor: SEMANTIC.background.secondary,
-    marginBottom: spacing[4],
+    borderColor: PRIMARY[200],
+    backgroundColor: '#fff',
   },
-  modalButtons: {
+  unlinkBtnText: { color: PRIMARY[600], fontSize: 13, fontWeight: '600' },
+
+  metaGrid: {
     flexDirection: 'row',
-    gap: spacing[3],
+    flexWrap: 'wrap',
+    gap: 14,
   },
-  modalButton: {
-    flex: 1,
+  metaItem: { flexBasis: '46%', flexGrow: 1 },
+  metaLabel: { fontSize: 11, color: GRAY[500], fontWeight: '500' },
+  metaValue: { fontSize: 14, color: GRAY[900], fontWeight: '600', marginTop: 2 },
+  metaValueMono: {
+    fontFamily: 'Courier',
+    fontSize: 13,
   },
+
+  unlinkedBlock: { alignItems: 'center', gap: 12, paddingVertical: 12 },
+  unlinkedTitle: { fontSize: 14, color: GRAY[700] },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: PRIMARY[600],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionTile: {
+    flexBasis: '46%',
+    flexGrow: 1,
+    borderWidth: 1.5,
+    borderColor: GRAY[200],
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  actionTitle: { fontSize: 14, fontWeight: '700', color: GRAY[900] },
+  actionDesc: { fontSize: 12, color: GRAY[600], textAlign: 'center' },
+
+  stepRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  stepCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: PRIMARY[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumber: { color: PRIMARY[600], fontWeight: '800', fontSize: 14 },
+  stepTitle: { fontSize: 14, fontWeight: '700', color: GRAY[900], marginBottom: 2 },
+  stepText: { fontSize: 12, color: GRAY[600], lineHeight: 17 },
+
+  securityGrid: { gap: 12 },
+  securityItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  securityTitle: { fontSize: 13, fontWeight: '700', color: GRAY[900] },
+  securityText: { fontSize: 12, color: GRAY[600], marginTop: 2 },
 });
